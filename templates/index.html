@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sistema Eddy - Registro de Calificaciones</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3350; --accent: #4f8ef7; --accent2: #38d9a9;
+    --warn: #f7a94f; --danger: #f76b6b; --text: #e8eaf0; --text2: #8b90a7;
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+  header { background: var(--surface); border-bottom: 2px solid var(--accent); padding: 14px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: var(--mono); font-size: 1.1rem; font-weight: 600; color: var(--accent); letter-spacing: 2px; }
+  .logo span { color: var(--accent2); }
+  header h1 { font-size: 0.85rem; color: var(--text2); font-weight: 400; }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .user-info { font-size: 0.8rem; color: var(--text2); font-family: var(--mono); }
+  .btn-header { padding: 6px 14px; border-radius: 5px; border: 1px solid var(--border); font-family: var(--sans); font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: all 0.2s; background: transparent; color: var(--text2); }
+  .btn-header:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-logout { border-color: var(--danger); color: var(--danger); }
+  .btn-logout:hover { background: rgba(247,107,107,0.1); }
+  .modal-pass input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 5px; font-family: var(--sans); font-size: 0.85rem; outline: none; margin-bottom: 10px; }
+  .modal-pass input:focus { border-color: var(--accent); }
+  .hash-box { background: var(--bg); border: 1px solid var(--accent2); border-radius: 5px; padding: 10px; font-family: var(--mono); font-size: 0.75rem; color: var(--accent2); word-break: break-all; margin-top: 10px; display: none; }
+  .hash-instrucciones { font-size: 0.78rem; color: var(--text2); margin-top: 8px; display: none; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #e05555; }
+  .nota-error { border: 2px solid var(--danger) !important; background-color: rgba(247, 107, 107, 0.1); }
+  .btn-whatsapp { background: #25D366; color: #fff; }
+  .btn-whatsapp:hover { background: #1ebe5d; }
+  .alerta-resultado { margin-top: 14px; display: none; }
+  .alerta-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 5px; font-size: 0.82rem; margin-bottom: 6px; }
+  .alerta-item.enviado { background: rgba(56,217,169,0.1); border: 1px solid rgba(56,217,169,0.3); color: var(--accent2); }
+  .alerta-item.sin_correo { background: rgba(247,169,79,0.1); border: 1px solid rgba(247,169,79,0.3); color: var(--warn); }
+  .alerta-item.error { background: rgba(247,107,107,0.1); border: 1px solid rgba(247,107,107,0.3); color: var(--danger); }
+  .alerta-resumen { font-size: 0.82rem; color: var(--text2); padding: 10px; border-top: 1px solid var(--border); margin-top: 8px; }
+  #toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: var(--surface2); border: 1px solid var(--border); border-left: 4px solid var(--accent2); padding: 12px 20px; border-radius: 6px; font-size: 0.85rem; color: var(--text); opacity: 0; transform: translateY(10px); transition: all 0.3s; pointer-events: none; max-width: 320px; }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.error { border-left-color: var(--danger); }
+  #toast.warn { border-left-color: var(--warn); }
+  .config-panel { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; }
+  .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; max-width: 1400px; }
+  .field label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+  .field select { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 5px; font-family: var(--sans); font-size: 0.85rem; cursor: pointer; outline: none; transition: border-color 0.2s; }
+  .field select:focus { border-color: var(--accent); }
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 24px; }
+  .tab-btn { padding: 10px 20px; font-family: var(--sans); font-size: 0.85rem; color: var(--text2); background: none; border: none; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s; font-weight: 500; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .registro-wrap { padding: 16px 24px; }
+  .table-container { overflow: auto; max-height: calc(100vh - 340px); border: 1px solid var(--border); border-radius: 8px; }
+  table { border-collapse: collapse; width: max-content; }
+  thead { position: sticky; top: 0; z-index: 10; }
+  thead tr:first-child th { background: var(--surface2); }
+  thead tr:last-child th { background: var(--surface); border-bottom: 2px solid var(--accent); }
+  th, td { border: 1px solid var(--border); }
+  th.th-name, td.td-name { position: sticky; left: 0; z-index: 5; background: var(--surface2); min-width: 200px; max-width: 200px; padding: 0; }
+  thead th.th-name { z-index: 15; }
+  th.th-num { width: 42px; min-width: 42px; background: var(--surface2); position: sticky; left: 0; z-index: 15; font-size: 0.7rem; color: var(--text2); text-align: center; padding: 6px; }
+  td.td-num { width: 42px; text-align: center; font-family: var(--mono); font-size: 0.75rem; color: var(--text2); background: var(--surface2); position: sticky; left: 0; z-index: 5; padding: 4px; }
+  .th-nota { min-width: 150px; padding: 4px 6px; font-family: var(--mono); font-size: 0.72rem; color: var(--text2); text-align: center; }
+  .nota-label { font-weight: 600; color: var(--accent); font-size: 0.7rem; margin-bottom: 4px; letter-spacing: 1px; }
+  .fecha-inputs { display: flex; gap: 3px; justify-content: center; }
+  .fecha-inputs select { background: var(--bg); border: 1px solid var(--border); color: var(--text); border-radius: 3px; padding: 2px 3px; font-size: 0.65rem; font-family: var(--mono); cursor: pointer; outline: none; }
+  .fecha-inputs select:focus { border-color: var(--accent); }
+  .sel-dia { width: 40px; } .sel-mes { width: 68px; } .sel-anio { width: 52px; }
+  td.td-name { padding: 0; }
+  .nombre-estudiante { width: 100%; background: transparent; border: none; color: var(--text); padding: 6px 10px; font-family: var(--sans); font-size: 0.82rem; cursor: default; user-select: none; }
+  .nombre-placeholder { color: var(--text2); font-style: italic; }
+  td.td-nota { min-width: 150px; padding: 0; text-align: center; }
+  .input-nota { width: 100%; background: transparent; border: none; color: var(--accent2); padding: 6px 8px; font-family: var(--mono); font-size: 0.85rem; text-align: center; outline: none; }
+  .input-nota:focus { background: rgba(56,217,169,0.07); }
+  tbody tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  tbody tr:hover td { background: rgba(79,142,247,0.05); }
+  tbody tr:hover td.td-name, tbody tr:hover td.td-num { background: var(--surface2); filter: brightness(1.1); }
+  tbody tr.fila-vacia td { opacity: 0.3; }
+  .col-oculta { display: none !important; }
+  .firmas-calc { font-size: 0.7rem; color: var(--warn); margin-top: 2px; font-family: var(--mono); }
+  .btn-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .btn { padding: 9px 18px; border-radius: 5px; border: none; font-family: var(--sans); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #3a7be0; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-success { background: var(--accent2); color: #0f1117; }
+  .btn-success:hover { background: #2ec496; }
+  .btn-warn { background: var(--warn); color: #0f1117; }
+  .btn-warn:hover { background: #e09840; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .info-banner { background: rgba(79,142,247,0.1); border: 1px solid rgba(79,142,247,0.3); border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.82rem; color: var(--text2); display: flex; align-items: center; gap: 8px; }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; width: 500px; max-height: 80vh; overflow-y: auto; }
+  .modal h3 { font-size: 1rem; margin-bottom: 6px; color: var(--accent); }
+  .modal p { font-size: 0.82rem; color: var(--text2); margin-bottom: 16px; }
+  .modal textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 5px; font-family: var(--mono); font-size: 0.82rem; min-height: 300px; resize: vertical; outline: none; }
+  .modal textarea:focus { border-color: var(--accent); }
+  .modal-btns { display: flex; gap: 10px; margin-top: 12px; justify-content: flex-end; }
+  .resumen-wrap { padding: 24px; }
+  .resumen-title { font-size: 1rem; font-weight: 600; color: var(--text); margin-bottom: 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .resumen-table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+  .resumen-table { border-collapse: collapse; width: 100%; }
+  .resumen-table th { background: var(--surface2); padding: 10px 14px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text2); border-bottom: 2px solid var(--border); text-align: center; white-space: nowrap; }
+  .resumen-table th:first-child { text-align: left; }
+  .resumen-table td { padding: 9px 14px; border-bottom: 1px solid var(--border); font-size: 0.85rem; text-align: center; font-family: var(--mono); }
+  .resumen-table td:first-child { text-align: left; font-family: var(--sans); color: var(--text); }
+  .resumen-table tbody tr:hover td { background: rgba(79,142,247,0.05); }
+  .prom-final { color: var(--accent2); font-weight: 600; }
+  .prom-bajo { color: var(--danger); } .prom-medio { color: var(--warn); } .prom-bueno { color: var(--accent2); }
+  #loading { display: none; position: fixed; inset: 0; background: rgba(15,17,23,0.7); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+  #loading.show { display: flex; }
+  .loading-ring { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  #loading p { font-size: 0.85rem; color: var(--text2); }
+  .nomina-input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 5px 8px; border-radius: 4px; font-family: var(--sans); font-size: 0.82rem; outline: none; transition: border-color 0.2s; }
+  .nomina-input:focus { border-color: var(--accent); }
+  .nomina-btn-del { background: transparent; border: 1px solid var(--danger); color: var(--danger); border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 0.75rem; transition: all 0.2s; }
+  .nomina-btn-del:hover { background: rgba(247,107,107,0.15); }
+</style>
+</head>
+<body>
+
+<div id="loading"><div class="loading-ring"></div><p id="loading-msg">Procesando...</p></div>
+<div id="toast"></div>
+
+<!-- MODAL NÓMINA — CRUD con tabla dinámica -->
+<div class="modal-overlay" id="modal-nomina">
+  <div class="modal" style="width:760px; max-height:88vh;">
+    <h3>📋 Gestionar Nómina de Estudiantes</h3>
+    <p>Agrega, edita o elimina estudiantes. Correo y teléfono son opcionales. El teléfono debe ser internacional (ej: 593999999999).</p>
+    <div style="display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; align-items:center;">
+      <button class="btn btn-success" style="padding:6px 14px;font-size:0.8rem;" onclick="nomina_agregarFila()">➕ Añadir fila</button>
+      <label class="btn btn-secondary" style="padding:6px 14px;font-size:0.8rem;cursor:pointer;">
+        📂 Importar archivo
+        <input type="file" id="nomina-file-input" accept=".xlsx,.csv" style="display:none;" onchange="nomina_importarArchivo(this)">
+      </label>
+      <span id="nomina-import-info" style="font-size:0.75rem;color:var(--text2);"></span>
+    </div>
+    <div style="overflow-y:auto; max-height:360px; border:1px solid var(--border); border-radius:6px;">
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr style="background:var(--surface2); position:sticky; top:0; z-index:5;">
+            <th style="padding:8px 10px; font-size:0.72rem; font-weight:600; color:var(--text2); letter-spacing:1px; text-transform:uppercase; text-align:left; border-bottom:2px solid var(--border); width:36%;">Nombre</th>
+            <th style="padding:8px 10px; font-size:0.72rem; font-weight:600; color:var(--text2); letter-spacing:1px; text-transform:uppercase; text-align:left; border-bottom:2px solid var(--border); width:30%;">Correo</th>
+            <th style="padding:8px 10px; font-size:0.72rem; font-weight:600; color:var(--text2); letter-spacing:1px; text-transform:uppercase; text-align:left; border-bottom:2px solid var(--border); width:24%;">Teléfono</th>
+            <th style="padding:8px 10px; border-bottom:2px solid var(--border); width:10%;"></th>
+          </tr>
+        </thead>
+        <tbody id="nomina-tbody"></tbody>
+      </table>
+    </div>
+    <div style="font-size:0.75rem;color:var(--text2);margin-top:6px;" id="nomina-contador">0 estudiantes</div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="cerrarModalNomina()">Cancelar</button>
+      <button class="btn btn-success" onclick="guardarNomina()">💾 Guardar Nómina</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ALERTAS ACADÉMICAS -->
+<div class="modal-overlay" id="modal-alertas">
+  <div class="modal" style="width:560px;">
+    <h3>📧 Enviar Alertas Académicas</h3>
+    <p>Se enviará un correo automático al representante de cada estudiante cuyo promedio sea <strong style="color:var(--danger)">menor a 7.00</strong>.</p>
+    <div id="alertas-lista-preview"></div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="cerrarModalAlertas()">Cancelar</button>
+      <button class="btn btn-danger" id="btn-confirmar-alertas" onclick="confirmarEnvioAlertas()">📧 Confirmar y Enviar</button>
+    </div>
+    <div class="alerta-resultado" id="alerta-resultado"></div>
+  </div>
+</div>
+
+<!-- MODAL CAMBIAR CONTRASEÑA -->
+<div class="modal-overlay" id="modal-pass">
+  <div class="modal modal-pass">
+    <h3>🔑 Cambiar Contraseña</h3>
+    <p>Ingresa tu contraseña actual y la nueva contraseña.</p>
+    <input type="password" id="pass-actual" placeholder="Contraseña actual">
+    <input type="password" id="pass-nueva" placeholder="Nueva contraseña (mín. 6 caracteres)">
+    <input type="password" id="pass-confirmar" placeholder="Confirmar nueva contraseña">
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="cerrarModalPass()">Cancelar</button>
+      <button class="btn btn-primary" onclick="cambiarPassword()">🔑 Cambiar</button>
+    </div>
+    <div class="hash-box" id="hash-resultado"></div>
+    <div class="hash-instrucciones" id="hash-instrucciones">
+      ✅ Copia ese código y ve a <strong>Render → Environment → APP_PASSWORD_HASH</strong> → pega el valor → Save. Luego recarga el programa.
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="logo">SYS<span>EDDY</span></div>
+  <h1>Sistema de Registro de Calificaciones</h1>
+  <div class="header-right">
+    <span class="user-info">👤 {{ usuario }}</span>
+    <button class="btn-header" onclick="abrirModalPass()">🔑 Cambiar contraseña</button>
+    <a href="/logout"><button class="btn-header btn-logout">🚪 Cerrar sesión</button></a>
+  </div>
+</header>
+
+<div class="config-panel">
+  <div class="config-grid">
+    <div class="field"><label>Curso</label><select id="sel-curso">{% for c in cursos %}<option>{{ c }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Asignatura</label><select id="sel-asig">{% for a in asignaturas %}<option>{{ a }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Período</label><select id="sel-tri">{% for t in trimestres %}<option>{{ t }}</option>{% endfor %}</select></div>
+    <div class="field"><label>Criterio</label><select id="sel-crit">{% for cr in criterios %}<option>{{ cr }}</option>{% endfor %}</select></div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('registro', this)">📝 Registro de Calificaciones</button>
+  <button class="tab-btn" onclick="switchTab('resumen', this)">📊 Resumen General</button>
+</div>
+
+<div id="tab-registro" class="tab-content active">
+  <div class="registro-wrap">
+    <div class="info-banner">ℹ️ Los nombres de estudiantes se cargan desde la nómina y no son editables aquí. Para modificar la nómina usa el botón correspondiente.</div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="guardar()" id="btn-guardar">💾 Guardar en Google Sheets</button>
+      <button class="btn btn-secondary" onclick="recargarNotas()" id="btn-cargar">🔄 Cargar notas</button>
+      <button class="btn btn-warn" onclick="abrirModalNomina()">📋 Gestionar Nómina</button>
+    </div>
+    <div class="table-container">
+      <table id="tabla-notas">
+        <thead>
+          <tr>
+            <th class="th-num" rowspan="2">#</th>
+            <th class="th-name" rowspan="2">ESTUDIANTE</th>
+            {% for i in range(max_columnas) %}
+            <th class="th-nota">
+              <div class="nota-label">NOTA {{ i+1 }}</div>
+              <div class="fecha-inputs">
+                <select class="sel-dia">{% for d in dias %}<option>{{ d }}</option>{% endfor %}</select>
+                <select class="sel-mes">{% for m in meses %}<option {% if m == 'Mayo' %}selected{% endif %}>{{ m }}</option>{% endfor %}</select>
+                <select class="sel-anio">{% for a in anios %}<option>{{ a }}</option>{% endfor %}</select>
+              </div>
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody id="tbody-notas">
+          {% for i in range(30) %}
+          <tr class="fila-vacia">
+            <td class="td-num">{{ i+1 }}</td>
+            <td class="td-name"><div class="nombre-estudiante nombre-placeholder">— Sin asignar —</div></td>
+            {% for j in range(max_columnas) %}
+            <td class="td-nota"><input class="input-nota" type="text" placeholder="—"></td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="tab-resumen" class="tab-content">
+  <div class="resumen-wrap">
+    <div class="resumen-title" id="resumen-titulo">Resumen General</div>
+    <div class="btn-row">
+      <button class="btn btn-success" onclick="cargarResumen()">📊 Actualizar Resumen</button>
+      <button class="btn btn-danger" id="btn-alertas" onclick="abrirModalAlertas()" disabled>📧 Enviar Alertas (prom &lt; 7)</button>
+      <button class="btn btn-whatsapp" id="btn-csv-whatsapp" onclick="descargarCSVWhatsApp()" disabled>💬 Generar CSV WhatsApp</button>
+    </div>
+    <div class="resumen-table-wrap">
+      <table class="resumen-table">
+        <thead>
+          <tr>
+            <th style="min-width:200px">Estudiante</th>
+            <th>Lecciones</th><th>Tareas</th><th>Act. Grupal</th>
+            <th>Extra 1</th><th>Extra 2</th><th>Firmas</th>
+            <th>PROM. FINAL</th>
+          </tr>
+        </thead>
+        <tbody id="tbody-resumen">
+          <tr><td colspan="8" style="text-align:center;color:var(--text2);padding:30px;">Haz clic en "Actualizar Resumen" para cargar los datos.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// CONSTANTES DEL SISTEMA
+// ============================================================================
+const MAX_COL = {{ max_columnas }};
+
+// CONFIGURACIÓN DE VALIDACIÓN DE TELÉFONOS - CENTRALIZADA
+const VALIDACION_TELEFONO = {
+  regex: /^5939\d{8}$/,
+  formato: '5939XXXXXXXX',
+  mensajeError: 'El teléfono debe tener formato ecuatoriano: 5939XXXXXXXX (12 dígitos)',
+  prefijos: {
+    internacional: '593',
+    celular: '5939'
+  }
+};
+
+// ============================================================================
+// VARIABLES GLOBALES
+// ============================================================================
+let nombresActuales = [];
+let tieneNomina = false;
+let correosActuales = {};
+let telefonosActuales = {};
+let resumenActual = [];
+
+// ============================================================================
+// FUNCIONES CENTRALIZADAS DE VALIDACIÓN DE TELÉFONOS
+// ============================================================================
+function validarTelefono(telefono) {
+  const limpio = telefono.trim();
+  
+  if (limpio === '') {
+    return { valido: true, valor: '', error: null };
+  }
+  
+  if (!VALIDACION_TELEFONO.regex.test(limpio)) {
+    return { 
+      valido: false, 
+      error: VALIDACION_TELEFONO.mensajeError,
+      valor: limpio
+    };
+  }
+  
+  return { valido: true, valor: limpio, error: null };
+}
+
+function normalizarTelefono(input) {
+  let numeros = input.replace(/\D/g, '');
+  
+  if (numeros.startsWith('09') && numeros.length === 10) {
+    return '5939' + numeros.slice(2);
+  }
+  
+  if (numeros.startsWith('0') && numeros.length === 10) {
+    return '593' + numeros.slice(1);
+  }
+  
+  if (numeros.startsWith('9') && numeros.length === 9) {
+    return '5939' + numeros.slice(1);
+  }
+  
+  return numeros;
+}
+
+// ============================================================================
+// FUNCIONES DE UI
+// ============================================================================
+function showLoading(v, msg = 'Procesando...') {
+  document.getElementById('loading-msg').textContent = msg;
+  document.getElementById('loading').classList.toggle('show', v);
+}
+
+function toast(msg, tipo = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (tipo ? ' ' + tipo : '');
+  setTimeout(() => t.className = '', 3500);
+}
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ============================================================================
+// FUNCIONES DE MODO FIRMAS
+// ============================================================================
+function actualizarModoFirmas() {
+  const esFirmas = document.getElementById('sel-crit').value === 'Firmas';
+  const thNotas = document.querySelectorAll('thead .th-nota');
+  thNotas.forEach((th, i) => { if (esFirmas && i > 0) th.classList.add('col-oculta'); else th.classList.remove('col-oculta'); });
+  document.querySelectorAll('#tbody-notas tr').forEach(tr => {
+    tr.querySelectorAll('.td-nota').forEach((td, i) => { if (esFirmas && i > 0) td.classList.add('col-oculta'); else td.classList.remove('col-oculta'); });
+  });
+  if (thNotas.length > 0) {
+    const label = thNotas[0].querySelector('.nota-label');
+    const fechaRow = thNotas[0].querySelector('.fecha-inputs');
+    if (esFirmas) {
+      label.textContent = 'N° FIRMAS'; label.style.color = 'var(--warn)';
+      if (fechaRow) fechaRow.style.display = 'none';
+      activarCalculoFirmas();
+    } else {
+      label.textContent = 'NOTA 1'; label.style.color = 'var(--accent)';
+      if (fechaRow) fechaRow.style.display = '';
+      document.querySelectorAll('.firmas-calc').forEach(el => el.remove());
+    }
+  }
+}
+
+function activarCalculoFirmas() {
+  document.querySelectorAll('.firmas-calc').forEach(el => el.remove());
+  document.querySelectorAll('#tbody-notas tr').forEach(tr => {
+    const celda = tr.querySelector('.td-nota');
+    if (!celda) return;
+    const div = document.createElement('div');
+    div.className = 'firmas-calc'; div.textContent = '';
+    celda.appendChild(div);
+    const input = celda.querySelector('.input-nota');
+    if (input) input.oninput = recalcularFirmas;
+  });
+}
+
+function recalcularFirmas() {
+  const inputs = document.querySelectorAll('#tbody-notas tr .td-nota:first-of-type .input-nota');
+  let maxFirmas = 0;
+  inputs.forEach(inp => { const val = parseFloat(inp.value); if (!isNaN(val) && val > maxFirmas) maxFirmas = val; });
+  document.querySelectorAll('#tbody-notas tr').forEach(tr => {
+    const celda = tr.querySelector('.td-nota');
+    if (!celda) return;
+    const input = celda.querySelector('.input-nota');
+    const label = celda.querySelector('.firmas-calc');
+    if (!input || !label) return;
+    const val = parseFloat(input.value);
+    label.textContent = (!isNaN(val) && maxFirmas > 0) ? '→ Nota: ' + ((val / maxFirmas) * 10).toFixed(2) : '';
+  });
+}
+
+// ============================================================================
+// FUNCIONES DE RENDERIZADO DE NOMBRES
+// ============================================================================
+function renderizarNombres(nombres) {
+  nombresActuales = nombres;
+  document.querySelectorAll('#tbody-notas tr').forEach((tr, i) => {
+    const celda = tr.querySelector('.nombre-estudiante');
+    tr.classList.remove('fila-vacia');
+    if (i < nombres.length && nombres[i]) { celda.textContent = nombres[i]; celda.classList.remove('nombre-placeholder'); }
+    else { celda.textContent = '— Sin asignar —'; celda.classList.add('nombre-placeholder'); tr.classList.add('fila-vacia'); }
+  });
+}
+
+function limpiarNotas() {
+  document.querySelectorAll('.input-nota').forEach(inp => { inp.value = ''; inp.classList.remove('nota-error'); });
+  document.querySelectorAll('thead .th-nota').forEach(th => {
+    const sels = th.querySelectorAll('select');
+    if (sels.length >= 3) { sels[0].value = '01'; sels[1].value = 'Mayo'; sels[2].value = '2026'; }
+  });
+}
+
+// ============================================================================
+// FUNCIONES DE CARGA DE DATOS
+// ============================================================================
+async function cargarEstudiantes() {
+  const curso = document.getElementById('sel-curso').value;
+  try {
+    const res = await fetch('/cargar_estudiantes', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ curso }) });
+    const json = await res.json();
+    if (json.ok) {
+      renderizarNombres(json.nombres);
+      tieneNomina = json.tiene_nomina;
+      correosActuales   = json.correos   || {};
+      telefonosActuales = json.telefonos || {};
+      if (!tieneNomina) toast('ℹ️ No hay nómina para este curso. Usa "Gestionar Nómina".', 'warn');
+    }
+  } catch(e) { toast('❌ Error al cargar estudiantes: ' + e.message, 'error'); }
+}
+
+async function recargarNotas() {
+  showLoading(true, 'Cargando notas...'); limpiarNotas();
+  try {
+    const res = await fetch('/cargar_notas', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ curso: document.getElementById('sel-curso').value, asignatura: document.getElementById('sel-asig').value, trimestre: document.getElementById('sel-tri').value, criterio: document.getElementById('sel-crit').value }) });
+    const json = await res.json();
+    if (!json.ok) { toast('❌ Error: ' + json.error, 'error'); return; }
+    const rows = document.querySelectorAll('#tbody-notas tr');
+    const thNotas = document.querySelectorAll('thead .th-nota');
+    if (json.encontrado) {
+      json.fechas.forEach((f, idx) => {
+        if (idx < thNotas.length) { const p = f.split('-'); if (p.length === 3) { const s = thNotas[idx].querySelectorAll('select'); if (s.length >= 3) { s[0].value=p[0]; s[1].value=p[1]; s[2].value=p[2]; } } }
+      });
+      rows.forEach(tr => {
+        const nombre = tr.querySelector('.nombre-estudiante').textContent.trim();
+        if (json.notas_por_estudiante[nombre]) { const ni = tr.querySelectorAll('.input-nota'); json.notas_por_estudiante[nombre].forEach((n, j) => { if (j < ni.length) ni[j].value = n; }); }
+      });
+      if (document.getElementById('sel-crit').value === 'Firmas') recalcularFirmas();
+      toast('✅ Notas cargadas correctamente');
+    } else { toast('ℹ️ No hay notas guardadas para este criterio aún.'); }
+  } catch(e) { toast('❌ Error: ' + e.message, 'error'); }
+  finally { showLoading(false); }
+}
+
+async function guardar() {
+  if (document.querySelector('.nota-error')) {
+    toast('⚠️ Por favor, corrige las notas marcadas en rojo (deben ser entre 0 y 10) antes de guardar.', 'warn');
+    return;
+  }
+  const btn = document.getElementById('btn-guardar');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Guardando...';
+  showLoading(true, 'Guardando en Google Sheets...');
+  try {
+    const thNotas = document.querySelectorAll('thead .th-nota');
+    const fechas = Array.from(thNotas).map(th => { const s = th.querySelectorAll('select'); return s.length >= 3 ? `${s[0].value}-${s[1].value}-${s[2].value}` : '01-Mayo-2026'; });
+    const estudiantes = Array.from(document.querySelectorAll('#tbody-notas tr')).map(tr => ({ nombre: tr.querySelector('.nombre-estudiante').textContent.trim(), notas: Array.from(tr.querySelectorAll('.input-nota')).map(i => i.value) })).filter(e => e.nombre && e.nombre !== '— Sin asignar —');
+    const res = await fetch('/guardar', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ curso: document.getElementById('sel-curso').value, asignatura: document.getElementById('sel-asig').value, trimestre: document.getElementById('sel-tri').value, criterio: document.getElementById('sel-crit').value, fechas, estudiantes }) });
+    const json = await res.json();
+    if (json.ok) toast('✅ ' + json.mensaje); else toast('❌ Error: ' + json.error, 'error');
+  } catch(e) { toast('❌ Error de conexión: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '💾 Guardar en Google Sheets'; showLoading(false); }
+}
+
+async function cargarResumen() {
+  showLoading(true, 'Calculando resumen...');
+  const curso = document.getElementById('sel-curso').value;
+  const asig  = document.getElementById('sel-asig').value;
+  const tri   = document.getElementById('sel-tri').value;
+  document.getElementById('resumen-titulo').textContent = `Resumen General: ${curso} | ${asig} | ${tri}`;
+  const nombres = nombresActuales.filter(n => n && !n.startsWith('— Sin asignar'));
+  try {
+    const res = await fetch('/resumen', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ curso, asignatura: asig, trimestre: tri, nombres }) });
+    const json = await res.json();
+    if (!json.ok) { toast('❌ Error: ' + json.error, 'error'); return; }
+    const tbody = document.getElementById('tbody-resumen');
+    tbody.innerHTML = '';
+    if (!json.data || json.data.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text2);padding:30px;">No hay datos guardados para esta selección.</td></tr>';
+      return;
+    }
+    json.data.forEach(est => {
+      const cc = pf => pf >= 7 ? 'prom-bueno' : pf >= 5 ? 'prom-medio' : 'prom-bajo';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${est.nombre}</td>${est.proms.map(p => `<td class="${cc(p)}">${p > 0 ? p.toFixed(2) : '—'}</td>`).join('')}<td class="prom-final ${cc(est.prom_final)}">${est.prom_final > 0 ? est.prom_final.toFixed(2) : '—'}</td>`;
+      tbody.appendChild(tr);
+    });
+    resumenActual = json.data;
+    document.getElementById('btn-alertas').disabled = false;
+    document.getElementById('btn-csv-whatsapp').disabled = false;
+    toast('✅ Resumen actualizado');
+  } catch(e) { toast('❌ Error: ' + e.message, 'error'); }
+  finally { showLoading(false); }
+}
+
+// ============================================================================
+// FUNCIÓN CSV WHATSAPP
+// ============================================================================
+function descargarCSVWhatsApp() {
+  if (!resumenActual || resumenActual.length === 0) { toast('⚠️ Primero carga el resumen.', 'warn'); return; }
+  const asignatura = document.getElementById('sel-asig').value;
+  const bajos = resumenActual.filter(e => e.prom_final > 0 && e.prom_final < 7);
+  if (bajos.length === 0) { toast('✅ No hay estudiantes con promedio menor a 7.', 'warn'); return; }
+  let ignorados = 0;
+  const validos = bajos.filter(e => {
+    const tel = (telefonosActuales[e.nombre] || '').trim();
+    const resultado = validarTelefono(tel);
+    if (!resultado.valido) { ignorados++; return false; }
+    return true;
+  });
+  if (validos.length === 0) {
+    toast(`⚠️ No hay estudiantes con teléfono válido. ${ignorados} ignorado(s) por teléfono inválido o ausente.`, 'warn');
+    return;
+  }
+  const filas = ['Phone,Name,Message1,Message2'];
+  validos.forEach(e => {
+    const tel  = telefonosActuales[e.nombre].trim();
+    const nota = e.prom_final.toFixed(2);
+    const msg1 = `Estimado representante, le informamos que el/la estudiante ${e.nombre}`;
+    const msg2 = `tiene un promedio de ${nota} en la asignatura de ${asignatura}. Para tratar este tema académico, le recordamos que nuestro horario de atención a padres de familia es los días martes de 14:00 a 15:00. Contamos con su valiosa asistencia.`;
+    filas.push(`${tel},"${e.nombre}","${msg1}","${msg2}"`);
+  });
+  const csvContent = '\uFEFF' + filas.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url; link.download = 'estudiantes_alerta_whatsapp.csv';
+  document.body.appendChild(link); link.click();
+  document.body.removeChild(link); URL.revokeObjectURL(url);
+  let msg = `✅ CSV generado con ${validos.length} estudiante(s).`;
+  if (ignorados > 0) msg += ` ${ignorados} ignorado(s) por teléfono inválido.`;
+  toast(msg);
+}
+
+// ============================================================================
+// FUNCIONES DE VALIDACIÓN DE TELÉFONOS EN INPUTS (USA FUNCIONES CENTRALIZADAS)
+// ============================================================================
+function nomina_validarTelefonoInput(inp) {
+  inp.value = normalizarTelefono(inp.value);
+  const resultado = validarTelefono(inp.value);
+  
+  if (resultado.valido) {
+    inp.classList.remove('nota-error');
+    inp.title = '';
+  } else {
+    inp.classList.add('nota-error');
+    inp.title = resultado.error;
+  }
+}
+
+function nomina_normalizarTelefono(inp) {
+  inp.value = normalizarTelefono(inp.value);
+  const resultado = validarTelefono(inp.value);
+  
+  if (resultado.valido) {
+    inp.classList.remove('nota-error');
+    inp.title = '';
+  } else {
+    inp.classList.add('nota-error');
+    inp.title = resultado.error;
+  }
+}
+
+// ============================================================================
+// CRUD NÓMINA
+// ============================================================================
+function nomina_actualizarContador() {
+  const filas = document.querySelectorAll('#nomina-tbody tr');
+  document.getElementById('nomina-contador').textContent = `${filas.length} estudiante(s)`;
+}
+
+function nomina_crearFila(nombre = '', correo = '', telefono = '') {
+  const tr = document.createElement('tr');
+  tr.style.borderBottom = '1px solid var(--border)';
+  tr.innerHTML = `
+    <td style="padding:4px 6px;">
+      <input type="text" placeholder="Nombre completo" value="${nombre}"
+        style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-family:var(--sans);font-size:0.82rem;outline:none;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+        data-campo="nombre">
+    </td>
+    <td style="padding:4px 6px;">
+      <input type="text" placeholder="correo@ejemplo.com" value="${correo}"
+        style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-family:var(--sans);font-size:0.82rem;outline:none;"
+        onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+        data-campo="correo">
+    </td>
+    <td style="padding:4px 6px;">
+      <input type="text" placeholder="${VALIDACION_TELEFONO.formato}" value="${telefono}"
+        style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-family:var(--mono);font-size:0.82rem;outline:none;"
+        onfocus="this.style.borderColor='var(--accent)'"
+        onblur="nomina_normalizarTelefono(this)"
+        oninput="nomina_validarTelefonoInput(this)"
+        data-campo="telefono">
+    </td>
+    <td style="padding:4px 6px;text-align:center;">
+      <button onclick="nomina_eliminarFila(this)"
+        style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:4px;padding:3px 8px;cursor:pointer;font-size:0.75rem;transition:all 0.2s;"
+        onmouseover="this.style.background='rgba(247,107,107,0.15)'" onmouseout="this.style.background='transparent'">✕</button>
+    </td>`;
+  return tr;
+}
+
+function nomina_agregarFila() {
+  const tbody = document.getElementById('nomina-tbody');
+  const tr = nomina_crearFila();
+  tbody.appendChild(tr);
+  tr.querySelector('input[data-campo="nombre"]').focus();
+  nomina_actualizarContador();
+}
+
+function nomina_eliminarFila(btn) {
+  btn.closest('tr').remove();
+  nomina_actualizarContador();
+}
+
+function nomina_leerFilas() {
+  return Array.from(document.querySelectorAll('#nomina-tbody tr')).map(tr => ({
+    nombre:   tr.querySelector('[data-campo="nombre"]').value.trim(),
+    correo:   tr.querySelector('[data-campo="correo"]').value.trim(),
+    telefono: tr.querySelector('[data-campo="telefono"]').value.trim()
+  })).filter(e => e.nombre.length > 0);
+}
+
+async function nomina_importarArchivo(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const info = document.getElementById('nomina-import-info');
+  info.textContent = '⏳ Importando...';
+  input.value = '';
+  const formData = new FormData();
+  formData.append('file', file);
+  try {
+    const res = await fetch('/importar_nomina', { method: 'POST', body: formData });
+    const json = await res.json();
+    if (!json.ok) { info.textContent = '❌ ' + json.error; return; }
+    const tbody = document.getElementById('nomina-tbody');
+    tbody.innerHTML = '';
+    json.estudiantes.forEach(e => tbody.appendChild(nomina_crearFila(e.nombre, e.correo, e.telefono)));
+    nomina_actualizarContador();
+    info.textContent = `✅ ${json.estudiantes.length} fila(s) importadas`;
+    setTimeout(() => info.textContent = '', 4000);
+  } catch(e) {
+    info.textContent = '❌ Error al importar: ' + e.message;
+  }
+}
+
+function abrirModalNomina() {
+  const tbody = document.getElementById('nomina-tbody');
+  tbody.innerHTML = '';
+  document.getElementById('nomina-import-info').textContent = '';
+  if (nombresActuales.length > 0 && tieneNomina) {
+    nombresActuales.forEach(n => {
+      const correo   = correosActuales[n]   || '';
+      const telefono = telefonosActuales[n] || '';
+      tbody.appendChild(nomina_crearFila(n, correo, telefono));
+    });
+  } else {
+    tbody.appendChild(nomina_crearFila());
+  }
+  nomina_actualizarContador();
+  document.getElementById('modal-nomina').classList.add('show');
+}
+
+function cerrarModalNomina() { document.getElementById('modal-nomina').classList.remove('show'); }
+
+async function guardarNomina() {
+  const estudiantes = nomina_leerFilas();
+  if (estudiantes.length === 0) { toast('⚠️ Ingresa al menos un nombre.', 'warn'); return; }
+  
+  const telefonosInvalidos = estudiantes.filter(e => {
+    if (!e.telefono) return false;
+    const resultado = validarTelefono(e.telefono);
+    return !resultado.valido;
+  });
+  
+  if (telefonosInvalidos.length > 0) {
+    toast(`⚠️ Hay ${telefonosInvalidos.length} teléfono(s) inválido(s). ${VALIDACION_TELEFONO.mensajeError}`, 'warn');
+    return;
+  }
+  
+  const soloNombres = estudiantes.map(e => e.nombre);
+  showLoading(true, 'Guardando nómina...'); cerrarModalNomina();
+  try {
+    const res = await fetch('/crear_nomina', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ curso: document.getElementById('sel-curso').value, nombres: estudiantes }) });
+    const json = await res.json();
+    if (json.ok) {
+      renderizarNombres(soloNombres);
+      estudiantes.forEach(e => {
+        if (e.correo)   correosActuales[e.nombre]   = e.correo;
+        if (e.telefono) telefonosActuales[e.nombre] = e.telefono;
+      });
+      tieneNomina = true;
+      toast('✅ ' + json.mensaje);
+    } else toast('❌ Error: ' + json.error, 'error');
+  } catch(e) { toast('❌ Error: ' + e.message, 'error'); }
+  finally { showLoading(false); }
+}
+
+// ============================================================================
+// ALERTAS ACADÉMICAS
+// ============================================================================
+function abrirModalAlertas() {
+  if (!resumenActual || resumenActual.length === 0) { toast('⚠️ Primero carga el resumen.', 'warn'); return; }
+  const bajos = resumenActual.filter(e => e.prom_final > 0 && e.prom_final < 7);
+  document.getElementById('alerta-resultado').style.display = 'none';
+  document.getElementById('alerta-resultado').innerHTML = '';
+  if (bajos.length === 0) {
+    document.getElementById('alertas-lista-preview').innerHTML = '<div style="color:var(--accent2);font-size:0.85rem;padding:10px 0;">✅ ¡Todos los estudiantes tienen promedio igual o mayor a 7!</div>';
+    document.getElementById('btn-confirmar-alertas').disabled = true;
+  } else {
+    document.getElementById('btn-confirmar-alertas').disabled = false;
+    let html = `<div style="font-size:0.8rem;color:var(--text2);margin-bottom:10px;">Se enviarán alertas a <strong style="color:var(--danger)">${bajos.length}</strong> estudiante(s):</div>`;
+    bajos.forEach(e => {
+      const correo = correosActuales[e.nombre] || '';
+      html += `<div class="alerta-item ${correo ? 'enviado' : 'sin_correo'}">${correo ? '📧' : '⚠️ Sin correo'} <strong>${e.nombre}</strong> — Promedio: ${e.prom_final.toFixed(2)} ${correo ? '→ ' + correo : ''}</div>`;
+    });
+    document.getElementById('alertas-lista-preview').innerHTML = html;
+  }
+  document.getElementById('modal-alertas').classList.add('show');
+}
+
+function cerrarModalAlertas() { document.getElementById('modal-alertas').classList.remove('show'); }
+
+async function confirmarEnvioAlertas() {
+  const curso = document.getElementById('sel-curso').value;
+  const asig  = document.getElementById('sel-asig').value;
+  const payload = resumenActual.filter(e => e.prom_final > 0 && e.prom_final < 7).map(e => ({ nombre: e.nombre, prom_final: e.prom_final, correo: correosActuales[e.nombre] || '' }));
+  const btn = document.getElementById('btn-confirmar-alertas');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Enviando...';
+  showLoading(true, 'Enviando correos de alerta...');
+  try {
+    const res  = await fetch('/enviar_alertas', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ curso, asignatura: asig, estudiantes: payload }) });
+    const json = await res.json();
+    if (!json.ok) { toast('❌ Error: ' + json.error, 'error'); return; }
+    const resultado = document.getElementById('alerta-resultado');
+    resultado.style.display = 'block';
+    let html = `<div class="alerta-resumen">✅ Enviados: <strong>${json.enviados}</strong> &nbsp;|&nbsp; ⚠️ Con problemas: <strong>${json.errores}</strong></div>`;
+    json.detalle.forEach(d => {
+      const clase = d.estado === 'enviado' ? 'enviado' : d.estado === 'sin_correo' ? 'sin_correo' : 'error';
+      const icono = d.estado === 'enviado' ? '✅' : d.estado === 'sin_correo' ? '⚠️' : '❌';
+      html += `<div class="alerta-item ${clase}">${icono} ${d.nombre} ${d.correo ? '→ ' + d.correo : ''} <span style="opacity:0.7;font-size:0.75rem;">${d.mensaje || ''}</span></div>`;
+    });
+    resultado.innerHTML = html;
+    toast(json.enviados > 0 ? `✅ ${json.enviados} correo(s) enviado(s)` : '⚠️ No se enviaron correos');
+  } catch(e) { toast('❌ Error: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.innerHTML = '📧 Confirmar y Enviar'; showLoading(false); }
+}
+
+document.getElementById('modal-alertas').addEventListener('click', function(e) { if (e.target === this) cerrarModalAlertas(); });
+
+// ============================================================================
+// CAMBIAR CONTRASEÑA
+// ============================================================================
+function abrirModalPass() { document.getElementById('modal-pass').classList.add('show'); }
+
+function cerrarModalPass() {
+  document.getElementById('modal-pass').classList.remove('show');
+  document.getElementById('pass-actual').value = '';
+  document.getElementById('pass-nueva').value = '';
+  document.getElementById('pass-confirmar').value = '';
+  document.getElementById('hash-resultado').style.display = 'none';
+  document.getElementById('hash-instrucciones').style.display = 'none';
+}
+
+async function cambiarPassword() {
+  const actual    = document.getElementById('pass-actual').value;
+  const nueva     = document.getElementById('pass-nueva').value;
+  const confirmar = document.getElementById('pass-confirmar').value;
+  if (!actual || !nueva || !confirmar) { toast('⚠️ Completa todos los campos.', 'warn'); return; }
+  showLoading(true, 'Verificando contraseña...');
+  try {
+    const res = await fetch('/cambiar_password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ password_actual: actual, password_nueva: nueva, password_confirmar: confirmar }) });
+    const json = await res.json();
+    if (json.ok) {
+      document.getElementById('hash-resultado').textContent = json.nuevo_hash;
+      document.getElementById('hash-resultado').style.display = 'block';
+      document.getElementById('hash-instrucciones').style.display = 'block';
+      toast('✅ Hash generado. Sigue las instrucciones abajo.');
+    } else toast('❌ ' + json.error, 'error');
+  } catch(e) { toast('❌ Error: ' + e.message, 'error'); }
+  finally { showLoading(false); }
+}
+
+document.getElementById('modal-pass').addEventListener('click', function(e) { if (e.target === this) cerrarModalPass(); });
+document.getElementById('modal-nomina').addEventListener('click', function(e) { if (e.target === this) cerrarModalNomina(); });
+
+// ============================================================================
+// VALIDACIÓN DE NOTAS EN TIEMPO REAL
+// ============================================================================
+document.getElementById('tbody-notas').addEventListener('input', function(e) {
+  if (!e.target.classList.contains('input-nota')) return;
+  const inp = e.target;
+  inp.value = inp.value.replace(',', '.');
+  const val = inp.value.trim();
+  if (val === '') { inp.classList.remove('nota-error'); return; }
+  const num = parseFloat(val);
+  const esValido = /^\d+(\.\d+)?$/.test(val) && !isNaN(num) && num >= 0 && num <= 10;
+  inp.classList.toggle('nota-error', !esValido);
+});
+
+// ============================================================================
+// NAVEGACIÓN CON ENTER Y FLECHAS (tipo Excel)
+// ============================================================================
+document.getElementById('tbody-notas').addEventListener('keydown', function(e) {
+  if (!e.target.classList.contains('input-nota')) return;
+
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const allInputs = Array.from(document.querySelectorAll('#tbody-notas .input-nota:not(.col-oculta)'));
+    const idx = allInputs.indexOf(e.target);
+    if (idx >= 0 && idx < allInputs.length - 1) { allInputs[idx + 1].focus(); allInputs[idx + 1].select(); }
+    return;
+  }
+
+  if (!['ArrowRight','ArrowLeft','ArrowDown','ArrowUp'].includes(e.key)) return;
+  e.preventDefault();
+
+  const filas = Array.from(document.querySelectorAll('#tbody-notas tr')).filter(tr =>
+    tr.querySelector('.input-nota:not(.col-oculta)')
+  );
+  const colsVisibles = Array.from(filas[0].querySelectorAll('.input-nota:not(.col-oculta)'));
+  const numCols = colsVisibles.length;
+
+  let filaIdx = -1, colIdx = -1;
+  for (let r = 0; r < filas.length; r++) {
+    const inputs = Array.from(filas[r].querySelectorAll('.input-nota:not(.col-oculta)'));
+    const c = inputs.indexOf(e.target);
+    if (c !== -1) { filaIdx = r; colIdx = c; break; }
+  }
+  if (filaIdx === -1) return;
+
+  let newFila = filaIdx, newCol = colIdx;
+  if (e.key === 'ArrowRight')  newCol  = Math.min(colIdx  + 1, numCols - 1);
+  if (e.key === 'ArrowLeft')   newCol  = Math.max(colIdx  - 1, 0);
+  if (e.key === 'ArrowDown')   newFila = Math.min(filaIdx + 1, filas.length - 1);
+  if (e.key === 'ArrowUp')     newFila = Math.max(filaIdx - 1, 0);
+
+  const targetInputs = Array.from(filas[newFila].querySelectorAll('.input-nota:not(.col-oculta)'));
+  if (targetInputs[newCol]) { targetInputs[newCol].focus(); targetInputs[newCol].select(); }
+});
+
+// ============================================================================
+// EVENT LISTENERS DE CAMBIO DE SELECCIÓN
+// ============================================================================
+async function onCursoTriChange() { 
+  actualizarModoFirmas(); 
+  limpiarNotas(); 
+  await Promise.all([cargarEstudiantes(), recargarNotas()]);
+}
+
+async function onCritAsigChange() { 
+  actualizarModoFirmas(); 
+  limpiarNotas(); 
+  await recargarNotas(); 
+}
+
+document.getElementById('sel-curso').addEventListener('change', onCursoTriChange);
+document.getElementById('sel-tri').addEventListener('change', onCursoTriChange);
+document.getElementById('sel-crit').addEventListener('change', onCritAsigChange);
+document.getElementById('sel-asig').addEventListener('change', onCritAsigChange);
+
+// ============================================================================
+// INICIALIZACIÓN AL CARGAR LA PÁGINA
+// ============================================================================
+window.addEventListener('load', async () => {
+  actualizarModoFirmas(); 
+  showLoading(true, 'Cargando datos iniciales...');
+  await Promise.all([cargarEstudiantes(), recargarNotas()]);
+  showLoading(false);
+});
+</script>
+</body>
+</html>
