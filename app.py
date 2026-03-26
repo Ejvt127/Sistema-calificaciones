@@ -336,7 +336,7 @@ def enviar_correo_alerta(correo_destino, nombre_estudiante, curso, asignatura, p
             "https://api.brevo.com/v3/smtp/email",
             headers={"api-key": brevo_api_key, "Content-Type": "application/json"},
             json={
-                "sender": {"name": "SYSEDDY", "email": "jar86502@gmail.com"},
+                "sender": {"name": "SYSEDDY", "email": "ejvt593@gmail.com"},
                 "to": [{"email": correo_destino}],
                 "subject": asunto,
                 "htmlContent": cuerpo_html
