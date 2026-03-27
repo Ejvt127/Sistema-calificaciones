@@ -53,6 +53,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
 
+# User loader requerido por Flask-Login
+@login_manager.user_loader
+def load_user(user_id):
+    return Usuario.query.get(int(user_id))
+
 # Modelo de Usuario
 class Usuario(db.Model):
     __tablename__ = 'usuarios'
