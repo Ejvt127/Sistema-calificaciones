@@ -26,8 +26,6 @@
   .btn-logout:hover { background: rgba(247,107,107,0.1); }
   .modal-pass input { width: 100%; background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: 5px; font-family: var(--sans); font-size: 0.85rem; outline: none; margin-bottom: 10px; }
   .modal-pass input:focus { border-color: var(--accent); }
-  .hash-box { background: var(--bg); border: 1px solid var(--accent2); border-radius: 5px; padding: 10px; font-family: var(--mono); font-size: 0.75rem; color: var(--accent2); word-break: break-all; margin-top: 10px; display: none; }
-  .hash-instrucciones { font-size: 0.78rem; color: var(--text2); margin-top: 8px; display: none; }
   .btn-danger { background: var(--danger); color: #fff; }
   .btn-danger:hover { background: #e05555; }
   .nota-error { border: 2px solid var(--danger) !important; background-color: rgba(247, 107, 107, 0.1); }
@@ -190,10 +188,6 @@
     <div class="modal-btns">
       <button class="btn btn-secondary" onclick="cerrarModalPass()">Cancelar</button>
       <button class="btn btn-primary" onclick="cambiarPassword()">🔑 Cambiar</button>
-    </div>
-    <div class="hash-box" id="hash-resultado"></div>
-    <div class="hash-instrucciones" id="hash-instrucciones">
-      ✅ Copia ese código y ve a <strong>Render → Environment → APP_PASSWORD_HASH</strong> → pega el valor → Save. Luego recarga el programa.
     </div>
   </div>
 </div>
@@ -808,8 +802,6 @@ function cerrarModalPass() {
   document.getElementById('pass-actual').value = '';
   document.getElementById('pass-nueva').value = '';
   document.getElementById('pass-confirmar').value = '';
-  document.getElementById('hash-resultado').style.display = 'none';
-  document.getElementById('hash-instrucciones').style.display = 'none';
 }
 
 async function cambiarPassword() {
@@ -817,15 +809,13 @@ async function cambiarPassword() {
   const nueva     = document.getElementById('pass-nueva').value;
   const confirmar = document.getElementById('pass-confirmar').value;
   if (!actual || !nueva || !confirmar) { toast('⚠️ Completa todos los campos.', 'warn'); return; }
-  showLoading(true, 'Verificando contraseña...');
+  showLoading(true, 'Cambiando contraseña...');
   try {
     const res = await fetch('/cambiar_password', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ password_actual: actual, password_nueva: nueva, password_confirmar: confirmar }) });
     const json = await res.json();
     if (json.ok) {
-      document.getElementById('hash-resultado').textContent = json.nuevo_hash;
-      document.getElementById('hash-resultado').style.display = 'block';
-      document.getElementById('hash-instrucciones').style.display = 'block';
-      toast('✅ Hash generado. Sigue las instrucciones abajo.');
+      toast('✅ ' + json.mensaje);
+      cerrarModalPass();
     } else toast('❌ ' + json.error, 'error');
   } catch(e) { toast('❌ Error: ' + e.message, 'error'); }
   finally { showLoading(false); }
