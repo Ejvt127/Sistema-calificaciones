@@ -41,11 +41,12 @@ else:
     app.secret_key = secrets.token_hex(32)
     logger.warning("⚠️  Usando SECRET_KEY temporal para desarrollo local")
 
-# Configuración de PostgreSQL - FORZAR psycopg v3
+# Configuración de PostgreSQL - FORZAR psycopg v3 (formato robusto)
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///local.db')
-if database_url and database_url.startswith('postgres://'):
-    # Cambiar postgres:// a postgresql+psycopg:// para forzar uso de psycopg v3
+if database_url and ('postgres://' in database_url or 'postgresql://' in database_url):
+    # Normalizar a postgresql+psycopg:// sin importar el formato original
     database_url = database_url.replace('postgres://', 'postgresql+psycopg://', 1)
+    database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
