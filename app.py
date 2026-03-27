@@ -1,10 +1,12 @@
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from flask_cors import CORS
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
 import gspread
 from google.oauth2.service_account import Credentials
 import os
 import json
-import hashlib
+import bcrypt
 from functools import wraps
 import requests
 import pandas as pd
@@ -24,6 +26,7 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 CORS(app)
 
+# Configuración de SECRET_KEY
 if os.environ.get("RENDER"):
     app.secret_key = os.environ.get("SECRET_KEY")
     if not app.secret_key:
@@ -37,6 +40,55 @@ else:
     import secrets
     app.secret_key = secrets.token_hex(32)
     logger.warning("⚠️  Usando SECRET_KEY temporal para desarrollo local")
+
+# Configuración de PostgreSQL
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///local.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+
+# Modelo de Usuario
+class Usuario(db.Model):
+    __tablename__ = 'usuarios'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def set_password(self, password):
+        self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    def check_password(self, password):
+        return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
+
+# Inicializar base de datos y crear usuario inicial
+def init_db():
+    with app.app_context():
+        db.create_all()
+        
+        # Crear usuario inicial si no existe
+        usuario_existente = Usuario.query.filter_by(username=os.environ.get("APP_USUARIO", "eddy")).first()
+        if not usuario_existente:
+            nuevo_usuario = Usuario(username=os.environ.get("APP_USUARIO", "eddy"))
+            
+            # Usar contraseña de APP_PASSWORD o fallback
+            password_inicial = os.environ.get("APP_PASSWORD", "admin123")
+            nuevo_usuario.set_password(password_inicial)
+            
+            db.session.add(nuevo_usuario)
+            db.session.commit()
+            logger.info(f"✅ Usuario inicial creado: {nuevo_usuario.username}")
+        else:
+            logger.info(f"✅ Usuario ya existe: {usuario_existente.username}")
+
+# Inicializar DB al inicio
+try:
+    init_db()
+except Exception as e:
+    logger.error(f"Error al inicializar base de datos: {e}")
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -160,14 +212,11 @@ def validar_nombre_estudiante(nombre):
     
     return nombre_limpio
 
-def get_password_hash(password):
-    return hashlib.sha256(password.encode()).hexdigest()
-
-def verificar_password(password_ingresada):
-    hash_guardado = os.environ.get("APP_PASSWORD_HASH", "")
-    if hash_guardado:
-        return get_password_hash(password_ingresada) == hash_guardado
-    return password_ingresada == os.environ.get("APP_PASSWORD", "admin123")
+def verificar_password(username, password):
+    usuario = Usuario.query.filter_by(username=username).first()
+    if usuario:
+        return usuario.check_password(password)
+    return False
 
 def login_requerido(f):
     @wraps(f)
@@ -189,7 +238,7 @@ def login():
             usuario  = request.form.get("usuario", "")
             password = request.form.get("password", "")
             
-            if usuario == os.environ.get("APP_USUARIO", "eddy") and verificar_password(password):
+            if verificar_password(usuario, password):
                 session["autenticado"] = True
                 session["usuario"] = usuario
                 logger.info(f"✅ Login exitoso: {usuario}")
@@ -219,8 +268,11 @@ def cambiar_password():
         password_nueva = data.get("password_nueva", "")
         password_confirmar = data.get("password_confirmar", "")
         
-        if not verificar_password(password_actual):
-            logger.warning(f"⚠️  Intento de cambio de contraseña con clave actual incorrecta: {session.get('usuario')}")
+        username = session.get('usuario')
+        usuario = Usuario.query.filter_by(username=username).first()
+        
+        if not usuario or not usuario.check_password(password_actual):
+            logger.warning(f"⚠️  Intento de cambio de contraseña con clave actual incorrecta: {username}")
             return jsonify({"ok": False, "error": "La contraseña actual es incorrecta"})
         
         if len(password_nueva) < 6:
@@ -229,10 +281,14 @@ def cambiar_password():
         if password_nueva != password_confirmar:
             return jsonify({"ok": False, "error": "Las contraseñas nuevas no coinciden"})
         
-        nuevo_hash = get_password_hash(password_nueva)
-        logger.info(f"🔑 Hash de contraseña generado para: {session.get('usuario')}")
+        # Guardar nueva contraseña en BD
+        usuario.set_password(password_nueva)
+        usuario.updated_at = datetime.utcnow()
+        db.session.commit()
         
-        return jsonify({"ok": True, "nuevo_hash": nuevo_hash})
+        logger.info(f"🔑 Contraseña cambiada exitosamente para: {username}")
+        
+        return jsonify({"ok": True, "mensaje": "Contraseña cambiada exitosamente"})
         
     except KeyError as e:
         logger.warning(f"Datos incompletos en cambiar_password: {e}")
