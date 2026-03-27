@@ -7,7 +7,7 @@ gunicorn==22.0.0
 requests
 pandas
 openpyxl
-SQLAlchemy==2.0.23
+SQLAlchemy==2.0.36
 Flask-Login==0.6.3
 bcrypt==4.1.2
 psycopg2-binary==2.9.9
