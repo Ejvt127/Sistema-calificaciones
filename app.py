@@ -960,6 +960,7 @@ def descargar_excel_whatsapp():
         data = request.json
         estudiantes = data.get("estudiantes", [])
         asignatura = data.get("asignatura", "")
+        trimestre = data.get("trimestre", "")  # NUEVO: recibir trimestre
         
         if not estudiantes:
             return jsonify({"ok": False, "error": "No hay estudiantes para exportar"}), 400
@@ -969,8 +970,8 @@ def descargar_excel_whatsapp():
         ws = wb.active
         ws.title = "Alertas WhatsApp"
         
-        # Encabezados
-        headers = ["Phone", "Name", "Message1", "Message2"]
+        # Encabezados - FORMATO NUEVO PARA WHATSENDER
+        headers = ["Phone", "Name", "Promedio", "Asignatura", "Periodo"]
         ws.append(headers)
         
         # Estilo de encabezados
@@ -983,16 +984,20 @@ def descargar_excel_whatsapp():
             cell.font = header_font
             cell.alignment = Alignment(horizontal="center", vertical="center")
         
-        # Llenar datos
+        # Llenar datos - SOLO DATOS, SIN MENSAJE PREDEFINIDO
         for est in estudiantes:
             tel = est.get("telefono", "").strip()
             nombre = est.get("nombre", "")
             nota = est.get("prom_final", 0)
             
-            msg1 = f"Estimado representante, le informamos que el/la estudiante {nombre}"
-            msg2 = f"tiene un promedio de {nota:.2f} en la asignatura de {asignatura}. Para tratar este tema académico, le recordamos que nuestro horario de atención a padres de familia es los días martes de 14:00 a 15:00. Contamos con su valiosa asistencia."
-            
-            ws.append([tel, nombre, msg1, msg2])
+            # Agregar fila con datos puros
+            ws.append([
+                tel,              # Phone
+                nombre,           # Name
+                f"{nota:.2f}",    # @value1 (Promedio)
+                asignatura,       # @value2 (Asignatura)
+                trimestre         # @value3 (Periodo)
+            ])
         
         # CRÍTICO: Forzar columna Phone como TEXTO
         for row_num in range(2, ws.max_row + 1):
@@ -1002,9 +1007,10 @@ def descargar_excel_whatsapp():
         
         # Ajustar anchos de columna
         ws.column_dimensions['A'].width = 15  # Phone
-        ws.column_dimensions['B'].width = 25  # Name
-        ws.column_dimensions['C'].width = 50  # Message1
-        ws.column_dimensions['D'].width = 70  # Message2
+        ws.column_dimensions['B'].width = 30  # Name
+        ws.column_dimensions['C'].width = 12  # Promedio
+        ws.column_dimensions['D'].width = 35  # Asignatura
+        ws.column_dimensions['E'].width = 15  # Periodo
         
         # Guardar en archivo temporal
         temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
