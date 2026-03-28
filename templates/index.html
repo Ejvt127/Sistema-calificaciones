@@ -264,7 +264,7 @@
     <div class="btn-row">
       <button class="btn btn-success" onclick="cargarResumen()">📊 Actualizar Resumen</button>
       <button class="btn btn-danger" id="btn-alertas" onclick="abrirModalAlertas()" disabled>📧 Enviar Alertas (prom &lt; 7)</button>
-      <button class="btn btn-whatsapp" id="btn-csv-whatsapp" onclick="descargarCSVWhatsApp()" disabled>💬 Generar CSV WhatsApp</button>
+      <button class="btn btn-whatsapp" id="btn-csv-whatsapp" onclick="descargarCSVWhatsApp()" disabled>📊 Generar Excel WhatsApp</button>
     </div>
     <div class="resumen-table-wrap">
       <table class="resumen-table">
@@ -537,13 +537,14 @@ async function cargarResumen() {
 }
 
 // ============================================================================
-// FUNCIÓN CSV WHATSAPP
+// FUNCIÓN EXCEL WHATSAPP (MODIFICADA)
 // ============================================================================
-function descargarCSVWhatsApp() {
+async function descargarCSVWhatsApp() {
   if (!resumenActual || resumenActual.length === 0) { toast('⚠️ Primero carga el resumen.', 'warn'); return; }
   const asignatura = document.getElementById('sel-asig').value;
   const bajos = resumenActual.filter(e => e.prom_final > 0 && e.prom_final < 7);
   if (bajos.length === 0) { toast('✅ No hay estudiantes con promedio menor a 7.', 'warn'); return; }
+  
   let ignorados = 0;
   const validos = bajos.filter(e => {
     const tel = (telefonosActuales[e.nombre] || '').trim();
@@ -551,28 +552,54 @@ function descargarCSVWhatsApp() {
     if (!resultado.valido) { ignorados++; return false; }
     return true;
   });
+  
   if (validos.length === 0) {
     toast(`⚠️ No hay estudiantes con teléfono válido. ${ignorados} ignorado(s) por teléfono inválido o ausente.`, 'warn');
     return;
   }
-  const filas = ['Phone,Name,Message1,Message2'];
-  validos.forEach(e => {
-    const tel  = telefonosActuales[e.nombre].trim();
-    const nota = e.prom_final.toFixed(2);
-    const msg1 = `Estimado representante, le informamos que el/la estudiante ${e.nombre}`;
-    const msg2 = `tiene un promedio de ${nota} en la asignatura de ${asignatura}. Para tratar este tema académico, le recordamos que nuestro horario de atención a padres de familia es los días martes de 14:00 a 15:00. Contamos con su valiosa asistencia.`;
-    filas.push(`${tel},"${e.nombre}","${msg1}","${msg2}"`);
-  });
-  const csvContent = '\uFEFF' + filas.join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url  = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url; link.download = 'estudiantes_alerta_whatsapp.csv';
-  document.body.appendChild(link); link.click();
-  document.body.removeChild(link); URL.revokeObjectURL(url);
-  let msg = `✅ CSV generado con ${validos.length} estudiante(s).`;
-  if (ignorados > 0) msg += ` ${ignorados} ignorado(s) por teléfono inválido.`;
-  toast(msg);
+  
+  // Preparar datos para el backend
+  const payload = validos.map(e => ({
+    nombre: e.nombre,
+    telefono: telefonosActuales[e.nombre].trim(),
+    prom_final: e.prom_final
+  }));
+  
+  showLoading(true, 'Generando archivo Excel...');
+  
+  try {
+    const res = await fetch('/descargar_excel_whatsapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estudiantes: payload, asignatura })
+    });
+    
+    if (!res.ok) {
+      const json = await res.json();
+      toast('❌ Error: ' + (json.error || 'No se pudo generar el archivo'), 'error');
+      return;
+    }
+    
+    // Descargar el archivo
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'estudiantes_alerta_whatsapp.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    let msg = `✅ Excel generado con ${validos.length} estudiante(s).`;
+    if (ignorados > 0) msg += ` ${ignorados} ignorado(s) por teléfono inválido.`;
+    toast(msg);
+    
+  } catch (e) {
+    toast('❌ Error de conexión: ' + e.message, 'error');
+  } finally {
+    showLoading(false);
+  }
 }
 
 // ============================================================================
