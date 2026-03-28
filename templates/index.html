@@ -31,6 +31,8 @@
   .nota-error { border: 2px solid var(--danger) !important; background-color: rgba(247, 107, 107, 0.1); }
   .btn-whatsapp { background: #25D366; color: #fff; }
   .btn-whatsapp:hover { background: #1ebe5d; }
+  .btn-excel { background: #217346; color: #fff; }
+  .btn-excel:hover { background: #1a5c37; }
   .alerta-resultado { margin-top: 14px; display: none; }
   .alerta-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 5px; font-size: 0.82rem; margin-bottom: 6px; }
   .alerta-item.enviado { background: rgba(56,217,169,0.1); border: 1px solid rgba(56,217,169,0.3); color: var(--accent2); }
@@ -265,6 +267,7 @@
       <button class="btn btn-success" onclick="cargarResumen()">📊 Actualizar Resumen</button>
       <button class="btn btn-danger" id="btn-alertas" onclick="abrirModalAlertas()" disabled>📧 Enviar Alertas (prom &lt; 7)</button>
       <button class="btn btn-whatsapp" id="btn-csv-whatsapp" onclick="descargarCSVWhatsApp()" disabled>📊 Generar Excel WhatsApp</button>
+      <button class="btn btn-excel" id="btn-excel-resumen" onclick="descargarResumenExcel()" disabled>📊 Descargar Excel Resumen</button>
     </div>
     <div class="resumen-table-wrap">
       <table class="resumen-table">
@@ -531,13 +534,14 @@ async function cargarResumen() {
     resumenActual = json.data;
     document.getElementById('btn-alertas').disabled = false;
     document.getElementById('btn-csv-whatsapp').disabled = false;
+    document.getElementById('btn-excel-resumen').disabled = false;
     toast('✅ Resumen actualizado');
   } catch(e) { toast('❌ Error: ' + e.message, 'error'); }
   finally { showLoading(false); }
 }
 
 // ============================================================================
-// FUNCIÓN EXCEL WHATSAPP (MODIFICADA PARA WHATSENDER)
+// FUNCIÓN EXCEL WHATSAPP
 // ============================================================================
 async function descargarCSVWhatsApp() {
   if (!resumenActual || resumenActual.length === 0) { toast('⚠️ Primero carga el resumen.', 'warn'); return; }
@@ -606,7 +610,59 @@ async function descargarCSVWhatsApp() {
 }
 
 // ============================================================================
-// FUNCIONES DE VALIDACIÓN DE TELÉFONOS EN INPUTS (USA FUNCIONES CENTRALIZADAS)
+// ✨ NUEVA FUNCIÓN: DESCARGAR RESUMEN COMPLETO EN EXCEL
+// ============================================================================
+async function descargarResumenExcel() {
+  if (!resumenActual || resumenActual.length === 0) {
+    toast('⚠️ Primero carga el resumen.', 'warn');
+    return;
+  }
+  
+  const curso = document.getElementById('sel-curso').value;
+  const asignatura = document.getElementById('sel-asig').value;
+  const trimestre = document.getElementById('sel-tri').value;
+  
+  showLoading(true, 'Generando Excel de resumen...');
+  
+  try {
+    const res = await fetch('/descargar_resumen_excel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        curso: curso,
+        asignatura: asignatura,
+        trimestre: trimestre,
+        estudiantes: resumenActual
+      })
+    });
+    
+    if (!res.ok) {
+      const json = await res.json();
+      toast('❌ Error: ' + (json.error || 'No se pudo generar el archivo'), 'error');
+      return;
+    }
+    
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `resumen_${curso.replace(/ /g, '_')}_${asignatura.replace(/ /g, '_')}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    toast(`✅ Excel de resumen generado con ${resumenActual.length} estudiante(s).`);
+    
+  } catch (e) {
+    toast('❌ Error de conexión: ' + e.message, 'error');
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ============================================================================
+// FUNCIONES DE VALIDACIÓN DE TELÉFONOS EN INPUTS
 // ============================================================================
 function nomina_validarTelefonoInput(inp) {
   inp.value = normalizarTelefono(inp.value);
@@ -855,7 +911,7 @@ document.getElementById('modal-pass').addEventListener('click', function(e) { if
 document.getElementById('modal-nomina').addEventListener('click', function(e) { if (e.target === this) cerrarModalNomina(); });
 
 // ============================================================================
-// VALIDACIÓN DE NOTAS EN TIEMPO REAL (✨ MODIFICADO - EXCEPCIÓN PARA FIRMAS)
+// VALIDACIÓN DE NOTAS EN TIEMPO REAL (CON EXCEPCIÓN PARA FIRMAS)
 // ============================================================================
 document.getElementById('tbody-notas').addEventListener('input', function(e) {
   if (!e.target.classList.contains('input-nota')) return;
@@ -864,17 +920,14 @@ document.getElementById('tbody-notas').addEventListener('input', function(e) {
   const val = inp.value.trim();
   if (val === '') { inp.classList.remove('nota-error'); return; }
   
-  // ✨ NUEVO: Validación condicional según criterio
   const criterioActual = document.getElementById('sel-crit').value;
   const esFirmas = criterioActual === 'Firmas';
   const num = parseFloat(val);
   
   let esValido;
   if (esFirmas) {
-    // Para Firmas: solo números enteros positivos (sin límite máximo)
     esValido = /^\d+$/.test(val) && !isNaN(num) && num >= 0;
   } else {
-    // Para otros criterios: 0-10 con decimales permitidos
     esValido = /^\d+(\.\d+)?$/.test(val) && !isNaN(num) && num >= 0 && num <= 10;
   }
   
