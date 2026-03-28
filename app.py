@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_file
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -13,6 +13,9 @@ import pandas as pd
 import io
 import logging
 from datetime import datetime
+import tempfile
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 
 logging.basicConfig(
     level=logging.INFO,
@@ -948,6 +951,80 @@ def importar_nomina():
         return jsonify({
             "ok": False,
             "error": "Ocurrió un error al importar el archivo. Verifica el formato."
+        }), 500
+
+@app.route("/descargar_excel_whatsapp", methods=["POST"])
+@login_requerido
+def descargar_excel_whatsapp():
+    try:
+        data = request.json
+        estudiantes = data.get("estudiantes", [])
+        asignatura = data.get("asignatura", "")
+        
+        if not estudiantes:
+            return jsonify({"ok": False, "error": "No hay estudiantes para exportar"}), 400
+        
+        # Crear workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Alertas WhatsApp"
+        
+        # Encabezados
+        headers = ["Phone", "Name", "Message1", "Message2"]
+        ws.append(headers)
+        
+        # Estilo de encabezados
+        header_fill = PatternFill(start_color="4F8EF7", end_color="4F8EF7", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Llenar datos
+        for est in estudiantes:
+            tel = est.get("telefono", "").strip()
+            nombre = est.get("nombre", "")
+            nota = est.get("prom_final", 0)
+            
+            msg1 = f"Estimado representante, le informamos que el/la estudiante {nombre}"
+            msg2 = f"tiene un promedio de {nota:.2f} en la asignatura de {asignatura}. Para tratar este tema académico, le recordamos que nuestro horario de atención a padres de familia es los días martes de 14:00 a 15:00. Contamos con su valiosa asistencia."
+            
+            ws.append([tel, nombre, msg1, msg2])
+        
+        # CRÍTICO: Forzar columna Phone como TEXTO
+        for row_num in range(2, ws.max_row + 1):
+            phone_cell = ws.cell(row=row_num, column=1)
+            phone_cell.number_format = '@'  # Formato TEXTO estricto
+            phone_cell.value = str(phone_cell.value)  # Asegurar que sea string
+        
+        # Ajustar anchos de columna
+        ws.column_dimensions['A'].width = 15  # Phone
+        ws.column_dimensions['B'].width = 25  # Name
+        ws.column_dimensions['C'].width = 50  # Message1
+        ws.column_dimensions['D'].width = 70  # Message2
+        
+        # Guardar en archivo temporal
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+        wb.save(temp_file.name)
+        temp_file.close()
+        
+        logger.info(f"📊 Excel WhatsApp generado con {len(estudiantes)} estudiantes")
+        
+        return send_file(
+            temp_file.name,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='estudiantes_alerta_whatsapp.xlsx'
+        )
+        
+    except Exception as e:
+        logger.exception("Error al generar Excel WhatsApp")
+        return jsonify({
+            "ok": False,
+            "error": "Ocurrió un error al generar el archivo Excel. Intenta nuevamente."
         }), 500
 
 if __name__ == "__main__":
