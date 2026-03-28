@@ -488,7 +488,7 @@ async function recargarNotas() {
 
 async function guardar() {
   if (document.querySelector('.nota-error')) {
-    toast('⚠️ Por favor, corrige las notas marcadas en rojo (deben ser entre 0 y 10) antes de guardar.', 'warn');
+    toast('⚠️ Por favor, corrige las notas marcadas en rojo antes de guardar.', 'warn');
     return;
   }
   const btn = document.getElementById('btn-guardar');
@@ -542,7 +542,7 @@ async function cargarResumen() {
 async function descargarCSVWhatsApp() {
   if (!resumenActual || resumenActual.length === 0) { toast('⚠️ Primero carga el resumen.', 'warn'); return; }
   const asignatura = document.getElementById('sel-asig').value;
-  const trimestre = document.getElementById('sel-tri').value;  // NUEVO: capturar trimestre
+  const trimestre = document.getElementById('sel-tri').value;
   const bajos = resumenActual.filter(e => e.prom_final > 0 && e.prom_final < 7);
   if (bajos.length === 0) { toast('✅ No hay estudiantes con promedio menor a 7.', 'warn'); return; }
   
@@ -559,7 +559,6 @@ async function descargarCSVWhatsApp() {
     return;
   }
   
-  // Preparar datos para el backend
   const payload = validos.map(e => ({
     nombre: e.nombre,
     telefono: telefonosActuales[e.nombre].trim(),
@@ -575,7 +574,7 @@ async function descargarCSVWhatsApp() {
       body: JSON.stringify({ 
         estudiantes: payload, 
         asignatura: asignatura,
-        trimestre: trimestre  // NUEVO: enviar trimestre al backend
+        trimestre: trimestre
       })
     });
     
@@ -585,7 +584,6 @@ async function descargarCSVWhatsApp() {
       return;
     }
     
-    // Descargar el archivo
     const blob = await res.blob();
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -857,7 +855,7 @@ document.getElementById('modal-pass').addEventListener('click', function(e) { if
 document.getElementById('modal-nomina').addEventListener('click', function(e) { if (e.target === this) cerrarModalNomina(); });
 
 // ============================================================================
-// VALIDACIÓN DE NOTAS EN TIEMPO REAL
+// VALIDACIÓN DE NOTAS EN TIEMPO REAL (✨ MODIFICADO - EXCEPCIÓN PARA FIRMAS)
 // ============================================================================
 document.getElementById('tbody-notas').addEventListener('input', function(e) {
   if (!e.target.classList.contains('input-nota')) return;
@@ -865,8 +863,21 @@ document.getElementById('tbody-notas').addEventListener('input', function(e) {
   inp.value = inp.value.replace(',', '.');
   const val = inp.value.trim();
   if (val === '') { inp.classList.remove('nota-error'); return; }
+  
+  // ✨ NUEVO: Validación condicional según criterio
+  const criterioActual = document.getElementById('sel-crit').value;
+  const esFirmas = criterioActual === 'Firmas';
   const num = parseFloat(val);
-  const esValido = /^\d+(\.\d+)?$/.test(val) && !isNaN(num) && num >= 0 && num <= 10;
+  
+  let esValido;
+  if (esFirmas) {
+    // Para Firmas: solo números enteros positivos (sin límite máximo)
+    esValido = /^\d+$/.test(val) && !isNaN(num) && num >= 0;
+  } else {
+    // Para otros criterios: 0-10 con decimales permitidos
+    esValido = /^\d+(\.\d+)?$/.test(val) && !isNaN(num) && num >= 0 && num <= 10;
+  }
+  
   inp.classList.toggle('nota-error', !esValido);
 });
 
