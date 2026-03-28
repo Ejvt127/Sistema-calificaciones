@@ -15,7 +15,7 @@ import logging
 from datetime import datetime
 import tempfile
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 logging.basicConfig(
     level=logging.INFO,
@@ -960,7 +960,7 @@ def descargar_excel_whatsapp():
         data = request.json
         estudiantes = data.get("estudiantes", [])
         asignatura = data.get("asignatura", "")
-        trimestre = data.get("trimestre", "")  # NUEVO: recibir trimestre
+        trimestre = data.get("trimestre", "")
         
         if not estudiantes:
             return jsonify({"ok": False, "error": "No hay estudiantes para exportar"}), 400
@@ -1028,6 +1028,132 @@ def descargar_excel_whatsapp():
         
     except Exception as e:
         logger.exception("Error al generar Excel WhatsApp")
+        return jsonify({
+            "ok": False,
+            "error": "Ocurrió un error al generar el archivo Excel. Intenta nuevamente."
+        }), 500
+
+# ✨ NUEVA RUTA: DESCARGAR RESUMEN COMPLETO EN EXCEL
+@app.route("/descargar_resumen_excel", methods=["POST"])
+@login_requerido
+def descargar_resumen_excel():
+    try:
+        data = request.json
+        curso = data.get("curso", "")
+        asignatura = data.get("asignatura", "")
+        trimestre = data.get("trimestre", "")
+        estudiantes = data.get("estudiantes", [])
+        
+        if not estudiantes:
+            return jsonify({"ok": False, "error": "No hay datos para exportar"}), 400
+        
+        # Crear workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Resumen General"
+        
+        # ESTILOS
+        titulo_font = Font(bold=True, size=14, color="1F4E78")
+        encabezado_fill = PatternFill(start_color="4F8EF7", end_color="4F8EF7", fill_type="solid")
+        encabezado_font = Font(bold=True, color="FFFFFF", size=11)
+        borde = Border(
+            left=Side(style='thin', color='2E3350'),
+            right=Side(style='thin', color='2E3350'),
+            top=Side(style='thin', color='2E3350'),
+            bottom=Side(style='thin', color='2E3350')
+        )
+        
+        # ENCABEZADO INFORMATIVO
+        ws['A1'] = "CURSO:"
+        ws['B1'] = curso
+        ws['A1'].font = titulo_font
+        ws['B1'].font = Font(size=12)
+        
+        ws['A2'] = "ASIGNATURA:"
+        ws['B2'] = asignatura
+        ws['A2'].font = titulo_font
+        ws['B2'].font = Font(size=12)
+        
+        ws['A3'] = "PERÍODO:"
+        ws['B3'] = trimestre
+        ws['A3'].font = titulo_font
+        ws['B3'].font = Font(size=12)
+        
+        # Fila vacía
+        current_row = 5
+        
+        # ENCABEZADOS DE TABLA
+        headers = ["ESTUDIANTE", "LECCIONES", "TAREAS", "ACT. GRUPAL", "EXTRA 1", "EXTRA 2", "FIRMAS", "PROM. FINAL"]
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=current_row, column=col_num)
+            cell.value = header
+            cell.fill = encabezado_fill
+            cell.font = encabezado_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = borde
+        
+        current_row += 1
+        
+        # DATOS DE ESTUDIANTES
+        for est in estudiantes:
+            ws.cell(row=current_row, column=1, value=est["nombre"])
+            
+            # Criterios (Lecciones, Tareas, etc.)
+            for col_num, promedio in enumerate(est["proms"], 2):
+                cell = ws.cell(row=current_row, column=col_num)
+                cell.value = promedio if promedio > 0 else "—"
+                cell.alignment = Alignment(horizontal="center")
+                cell.border = borde
+                
+                # Color según promedio
+                if promedio >= 7:
+                    cell.font = Font(color="38D9A9", bold=True)
+                elif promedio >= 5:
+                    cell.font = Font(color="F7A94F")
+                elif promedio > 0:
+                    cell.font = Font(color="F76B6B", bold=True)
+            
+            # Promedio Final
+            prom_final = est["prom_final"]
+            cell = ws.cell(row=current_row, column=8)
+            cell.value = prom_final if prom_final > 0 else "—"
+            cell.alignment = Alignment(horizontal="center")
+            cell.border = borde
+            
+            if prom_final >= 7:
+                cell.font = Font(color="38D9A9", bold=True, size=12)
+            elif prom_final >= 5:
+                cell.font = Font(color="F7A94F", bold=True, size=12)
+            elif prom_final > 0:
+                cell.font = Font(color="F76B6B", bold=True, size=12)
+            
+            # Borde para nombre
+            ws.cell(row=current_row, column=1).border = borde
+            
+            current_row += 1
+        
+        # AJUSTAR ANCHOS DE COLUMNA
+        ws.column_dimensions['A'].width = 35
+        for col in ['B', 'C', 'D', 'E', 'F', 'G']:
+            ws.column_dimensions[col].width = 14
+        ws.column_dimensions['H'].width = 16
+        
+        # Guardar en archivo temporal
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+        wb.save(temp_file.name)
+        temp_file.close()
+        
+        logger.info(f"📊 Excel resumen generado: {curso} | {asignatura} | {trimestre} ({len(estudiantes)} estudiantes)")
+        
+        return send_file(
+            temp_file.name,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'resumen_{curso.replace(" ", "_")}_{asignatura.replace(" ", "_")}.xlsx'
+        )
+        
+    except Exception as e:
+        logger.exception("Error al generar Excel de resumen")
         return jsonify({
             "ok": False,
             "error": "Ocurrió un error al generar el archivo Excel. Intenta nuevamente."
