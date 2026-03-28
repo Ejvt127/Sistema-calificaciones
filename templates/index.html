@@ -537,11 +537,12 @@ async function cargarResumen() {
 }
 
 // ============================================================================
-// FUNCIÓN EXCEL WHATSAPP (MODIFICADA)
+// FUNCIÓN EXCEL WHATSAPP (MODIFICADA PARA WHATSENDER)
 // ============================================================================
 async function descargarCSVWhatsApp() {
   if (!resumenActual || resumenActual.length === 0) { toast('⚠️ Primero carga el resumen.', 'warn'); return; }
   const asignatura = document.getElementById('sel-asig').value;
+  const trimestre = document.getElementById('sel-tri').value;  // NUEVO: capturar trimestre
   const bajos = resumenActual.filter(e => e.prom_final > 0 && e.prom_final < 7);
   if (bajos.length === 0) { toast('✅ No hay estudiantes con promedio menor a 7.', 'warn'); return; }
   
@@ -571,7 +572,11 @@ async function descargarCSVWhatsApp() {
     const res = await fetch('/descargar_excel_whatsapp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ estudiantes: payload, asignatura })
+      body: JSON.stringify({ 
+        estudiantes: payload, 
+        asignatura: asignatura,
+        trimestre: trimestre  // NUEVO: enviar trimestre al backend
+      })
     });
     
     if (!res.ok) {
