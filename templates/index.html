@@ -222,8 +222,7 @@
 <div id="tab-registro" class="tab-content active">
   <div class="registro-wrap">
     <div class="info-banner">
-      ℹ️ Los nombres de estudiantes se cargan desde la nómina y no son editables aquí. 
-      <strong>Copiar/Pegar:</strong> Selecciona celdas con click + arrastre, copia con Ctrl+C y pega con Ctrl+V (compatible con Excel).
+      ℹ️ <strong>Atajos:</strong> Ctrl+Z = Deshacer | Ctrl+Y = Rehacer | Ctrl+C = Copiar | Ctrl+V = Pegar | Delete = Borrar selección
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="guardar()" id="btn-guardar">💾 Guardar en Google Sheets</button>
@@ -317,10 +316,158 @@ let correosActuales = {};
 let telefonosActuales = {};
 let resumenActual = [];
 
-// ✨ NUEVAS VARIABLES PARA COPIAR/PEGAR
+// VARIABLES PARA COPIAR/PEGAR
 let celdasSeleccionadas = [];
 let seleccionIniciada = false;
 let celdaInicio = null;
+
+// ✨ NUEVAS VARIABLES PARA UNDO/REDO
+let historialUndo = [];
+let historialRedo = [];
+const MAX_HISTORIAL = 100;
+let ignorarRegistroAccion = false; // Flag para evitar registros duplicados
+
+// ============================================================================
+// ✨ NUEVO: SISTEMA DE UNDO/REDO
+// ============================================================================
+
+// Registrar una acción en el historial
+function registrarAccion(accion) {
+  if (ignorarRegistroAccion) return;
+  
+  historialUndo.push(accion);
+  historialRedo = []; // Limpiar redo al hacer nueva acción
+  
+  // Limitar tamaño del historial
+  if (historialUndo.length > MAX_HISTORIAL) {
+    historialUndo.shift();
+  }
+}
+
+// Deshacer última acción
+function deshacer() {
+  if (historialUndo.length === 0) {
+    toast('⚠️ No hay acciones para deshacer', 'warn');
+    return;
+  }
+  
+  const accion = historialUndo.pop();
+  historialRedo.push(accion);
+  
+  ignorarRegistroAccion = true; // Evitar registrar el undo como nueva acción
+  
+  // Aplicar el cambio inverso
+  accion.celdas.forEach(({input, valorAnterior}) => {
+    if (input && document.body.contains(input)) {
+      input.value = valorAnterior;
+      
+      // Validar después de deshacer
+      validarInputNota(input);
+    }
+  });
+  
+  // Recalcular firmas si es necesario
+  if (document.getElementById('sel-crit').value === 'Firmas') {
+    recalcularFirmas();
+  }
+  
+  ignorarRegistroAccion = false;
+  
+  const tipo = accion.tipo === 'edicion' ? 'edición' : accion.tipo === 'pegado' ? 'pegado' : 'eliminación';
+  toast(`↶ Deshecha ${tipo} (${accion.celdas.length} celda(s))`);
+}
+
+// Rehacer acción
+function rehacer() {
+  if (historialRedo.length === 0) {
+    toast('⚠️ No hay acciones para rehacer', 'warn');
+    return;
+  }
+  
+  const accion = historialRedo.pop();
+  historialUndo.push(accion);
+  
+  ignorarRegistroAccion = true;
+  
+  // Aplicar el cambio hacia adelante
+  accion.celdas.forEach(({input, valorNuevo}) => {
+    if (input && document.body.contains(input)) {
+      input.value = valorNuevo;
+      
+      // Validar después de rehacer
+      validarInputNota(input);
+    }
+  });
+  
+  // Recalcular firmas si es necesario
+  if (document.getElementById('sel-crit').value === 'Firmas') {
+    recalcularFirmas();
+  }
+  
+  ignorarRegistroAccion = false;
+  
+  const tipo = accion.tipo === 'edicion' ? 'edición' : accion.tipo === 'pegado' ? 'pegado' : 'eliminación';
+  toast(`↷ Rehecha ${tipo} (${accion.celdas.length} celda(s))`);
+}
+
+// Validar un input y aplicar clases de error
+function validarInputNota(inp) {
+  const val = inp.value.trim();
+  if (val === '') {
+    inp.classList.remove('nota-error');
+    return;
+  }
+  
+  const criterioActual = document.getElementById('sel-crit').value;
+  const esFirmas = criterioActual === 'Firmas';
+  const num = parseFloat(val);
+  
+  let esValido;
+  if (esFirmas) {
+    esValido = /^\d+$/.test(val) && !isNaN(num) && num >= 0;
+  } else {
+    esValido = /^\d+(\.\d+)?$/.test(val) && !isNaN(num) && num >= 0 && num <= 10;
+  }
+  
+  inp.classList.toggle('nota-error', !esValido);
+}
+
+// ============================================================================
+// ✨ NUEVO: ELIMINACIÓN DE SELECCIÓN MÚLTIPLE
+// ============================================================================
+
+function eliminarSeleccion() {
+  if (celdasSeleccionadas.length === 0) {
+    toast('⚠️ No hay celdas seleccionadas', 'warn');
+    return;
+  }
+  
+  // Registrar acción para undo
+  const accion = {
+    tipo: 'eliminacion',
+    celdas: celdasSeleccionadas.map(input => ({
+      input: input,
+      valorAnterior: input.value,
+      valorNuevo: ''
+    }))
+  };
+  
+  registrarAccion(accion);
+  
+  // Eliminar valores
+  celdasSeleccionadas.forEach(input => {
+    input.value = '';
+    input.classList.remove('nota-error');
+  });
+  
+  // Recalcular firmas si es necesario
+  if (document.getElementById('sel-crit').value === 'Firmas') {
+    recalcularFirmas();
+  }
+  
+  toast(`🗑️ ${celdasSeleccionadas.length} celda(s) eliminada(s)`);
+  limpiarSeleccion();
+}
 
 // ============================================================================
 // FUNCIONES CENTRALIZADAS DE VALIDACIÓN DE TELÉFONOS
@@ -455,6 +602,10 @@ function limpiarNotas() {
     const sels = th.querySelectorAll('select');
     if (sels.length >= 3) { sels[0].value = '01'; sels[1].value = 'Mayo'; sels[2].value = '2026'; }
   });
+  
+  // Limpiar historial al cambiar de contexto
+  historialUndo = [];
+  historialRedo = [];
 }
 
 // ============================================================================
@@ -920,7 +1071,7 @@ document.getElementById('modal-pass').addEventListener('click', function(e) { if
 document.getElementById('modal-nomina').addEventListener('click', function(e) { if (e.target === this) cerrarModalNomina(); });
 
 // ============================================================================
-// ✨ NUEVA FUNCIONALIDAD: COPIAR/PEGAR CON EXCEL
+// FUNCIONALIDAD COPIAR/PEGAR CON EXCEL
 // ============================================================================
 
 // Función para obtener posición (fila, columna) de un input
@@ -1058,8 +1209,11 @@ document.getElementById('tbody-notas').addEventListener('paste', async function(
     // Obtener posición de inicio
     const posicionInicio = obtenerPosicionInput(e.target);
     
-    let celdasPegadas = 0;
-    let celdasInvalidas = 0;
+    // Preparar registro para undo
+    const accion = {
+      tipo: 'pegado',
+      celdas: []
+    };
     
     // Pegar datos
     filas.forEach((fila, offsetFila) => {
@@ -1070,38 +1224,35 @@ document.getElementById('tbody-notas').addEventListener('paste', async function(
         );
         
         if (input && valor !== '') {
+          // Registrar estado anterior para undo
+          accion.celdas.push({
+            input: input,
+            valorAnterior: input.value,
+            valorNuevo: valor.replace(',', '.')
+          });
+          
           input.value = valor.replace(',', '.');
           
           // Validar el valor pegado
-          const criterioActual = document.getElementById('sel-crit').value;
-          const esFirmas = criterioActual === 'Firmas';
-          const num = parseFloat(input.value);
-          
-          let esValido;
-          if (esFirmas) {
-            esValido = /^\d+$/.test(input.value) && !isNaN(num) && num >= 0;
-          } else {
-            esValido = /^\d+(\.\d+)?$/.test(input.value) && !isNaN(num) && num >= 0 && num <= 10;
-          }
-          
-          if (esValido) {
-            input.classList.remove('nota-error');
-            celdasPegadas++;
-          } else {
-            input.classList.add('nota-error');
-            celdasInvalidas++;
-          }
+          validarInputNota(input);
         }
       });
     });
+    
+    // Registrar acción en historial
+    if (accion.celdas.length > 0) {
+      registrarAccion(accion);
+    }
     
     // Recalcular firmas si es necesario
     if (document.getElementById('sel-crit').value === 'Firmas') {
       recalcularFirmas();
     }
     
-    // Mensaje de resultado
-    let mensaje = `✅ ${celdasPegadas} celda(s) pegada(s)`;
+    const celdasValidas = accion.celdas.filter(c => !c.input.classList.contains('nota-error')).length;
+    const celdasInvalidas = accion.celdas.length - celdasValidas;
+    
+    let mensaje = `✅ ${celdasValidas} celda(s) pegada(s)`;
     if (celdasInvalidas > 0) {
       mensaje += ` | ⚠️ ${celdasInvalidas} con error de validación`;
       toast(mensaje, 'warn');
@@ -1130,22 +1281,86 @@ document.addEventListener('click', function(e) {
 document.getElementById('tbody-notas').addEventListener('input', function(e) {
   if (!e.target.classList.contains('input-nota')) return;
   const inp = e.target;
-  inp.value = inp.value.replace(',', '.');
-  const val = inp.value.trim();
-  if (val === '') { inp.classList.remove('nota-error'); return; }
   
-  const criterioActual = document.getElementById('sel-crit').value;
-  const esFirmas = criterioActual === 'Firmas';
-  const num = parseFloat(val);
-  
-  let esValido;
-  if (esFirmas) {
-    esValido = /^\d+$/.test(val) && !isNaN(num) && num >= 0;
-  } else {
-    esValido = /^\d+(\.\d+)?$/.test(val) && !isNaN(num) && num >= 0 && num <= 10;
+  // Registrar valor anterior antes de cambiar
+  if (!inp.dataset.valorAnterior) {
+    inp.dataset.valorAnterior = '';
   }
   
-  inp.classList.toggle('nota-error', !esValido);
+  const valorAnterior = inp.dataset.valorAnterior;
+  
+  inp.value = inp.value.replace(',', '.');
+  const val = inp.value.trim();
+  
+  // Actualizar valor anterior
+  inp.dataset.valorAnterior = val;
+  
+  if (val === '') { 
+    inp.classList.remove('nota-error'); 
+    return; 
+  }
+  
+  validarInputNota(inp);
+});
+
+// Event listener para registrar ediciones manuales (blur = fin de edición)
+document.getElementById('tbody-notas').addEventListener('blur', function(e) {
+  if (!e.target.classList.contains('input-nota')) return;
+  
+  const inp = e.target;
+  const valorAnterior = inp.dataset.valorAnteriorBlur || '';
+  const valorNuevo = inp.value;
+  
+  // Solo registrar si realmente cambió
+  if (valorAnterior !== valorNuevo) {
+    registrarAccion({
+      tipo: 'edicion',
+      celdas: [{
+        input: inp,
+        valorAnterior: valorAnterior,
+        valorNuevo: valorNuevo
+      }]
+    });
+  }
+  
+  // Actualizar valor anterior para próximo blur
+  inp.dataset.valorAnteriorBlur = valorNuevo;
+}, true);
+
+// Event listener para capturar valor antes del focus
+document.getElementById('tbody-notas').addEventListener('focus', function(e) {
+  if (!e.target.classList.contains('input-nota')) return;
+  
+  e.target.dataset.valorAnteriorBlur = e.target.value;
+}, true);
+
+// ============================================================================
+// ✨ NUEVO: EVENT LISTENER GLOBAL PARA UNDO/REDO/DELETE
+// ============================================================================
+document.addEventListener('keydown', function(e) {
+  // Solo si estamos en la pestaña de registro
+  if (!document.getElementById('tab-registro').classList.contains('active')) return;
+  
+  // Deshacer: Ctrl+Z
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+    e.preventDefault();
+    deshacer();
+  }
+  
+  // Rehacer: Ctrl+Y o Ctrl+Shift+Z
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+    e.preventDefault();
+    rehacer();
+  }
+  
+  // Eliminar selección: Delete o Backspace
+  if ((e.key === 'Delete' || e.key === 'Backspace') && celdasSeleccionadas.length > 0) {
+    // Solo si no estamos escribiendo en un input
+    if (!document.activeElement.classList.contains('input-nota') || celdasSeleccionadas.length > 1) {
+      e.preventDefault();
+      eliminarSeleccion();
+    }
+  }
 });
 
 // ============================================================================
