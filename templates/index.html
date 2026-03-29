@@ -29,6 +29,7 @@
   .btn-danger { background: var(--danger); color: #fff; }
   .btn-danger:hover { background: #e05555; }
   .nota-error { border: 2px solid var(--danger) !important; background-color: rgba(247, 107, 107, 0.1); }
+  .nota-seleccionada { background: rgba(79,142,247,0.2) !important; border: 2px solid var(--accent) !important; }
   .btn-whatsapp { background: #25D366; color: #fff; }
   .btn-whatsapp:hover { background: #1ebe5d; }
   .btn-excel { background: #217346; color: #fff; }
@@ -220,7 +221,10 @@
 
 <div id="tab-registro" class="tab-content active">
   <div class="registro-wrap">
-    <div class="info-banner">ℹ️ Los nombres de estudiantes se cargan desde la nómina y no son editables aquí. Para modificar la nómina usa el botón correspondiente.</div>
+    <div class="info-banner">
+      ℹ️ Los nombres de estudiantes se cargan desde la nómina y no son editables aquí. 
+      <strong>Copiar/Pegar:</strong> Selecciona celdas con click + arrastre, copia con Ctrl+C y pega con Ctrl+V (compatible con Excel).
+    </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="guardar()" id="btn-guardar">💾 Guardar en Google Sheets</button>
       <button class="btn btn-secondary" onclick="recargarNotas()" id="btn-cargar">🔄 Cargar notas</button>
@@ -312,6 +316,11 @@ let tieneNomina = false;
 let correosActuales = {};
 let telefonosActuales = {};
 let resumenActual = [];
+
+// ✨ NUEVAS VARIABLES PARA COPIAR/PEGAR
+let celdasSeleccionadas = [];
+let seleccionIniciada = false;
+let celdaInicio = null;
 
 // ============================================================================
 // FUNCIONES CENTRALIZADAS DE VALIDACIÓN DE TELÉFONOS
@@ -610,7 +619,7 @@ async function descargarCSVWhatsApp() {
 }
 
 // ============================================================================
-// ✨ NUEVA FUNCIÓN: DESCARGAR RESUMEN COMPLETO EN EXCEL
+// FUNCIÓN EXCEL RESUMEN
 // ============================================================================
 async function descargarResumenExcel() {
   if (!resumenActual || resumenActual.length === 0) {
@@ -909,6 +918,211 @@ async function cambiarPassword() {
 
 document.getElementById('modal-pass').addEventListener('click', function(e) { if (e.target === this) cerrarModalPass(); });
 document.getElementById('modal-nomina').addEventListener('click', function(e) { if (e.target === this) cerrarModalNomina(); });
+
+// ============================================================================
+// ✨ NUEVA FUNCIONALIDAD: COPIAR/PEGAR CON EXCEL
+// ============================================================================
+
+// Función para obtener posición (fila, columna) de un input
+function obtenerPosicionInput(input) {
+  const td = input.closest('td');
+  const tr = input.closest('tr');
+  const tbody = document.getElementById('tbody-notas');
+  
+  const filas = Array.from(tbody.querySelectorAll('tr'));
+  const celdasFila = Array.from(tr.querySelectorAll('.input-nota:not(.col-oculta)'));
+  
+  return {
+    fila: filas.indexOf(tr),
+    columna: celdasFila.indexOf(input)
+  };
+}
+
+// Función para obtener input por posición
+function obtenerInputPorPosicion(fila, columna) {
+  const tbody = document.getElementById('tbody-notas');
+  const filas = Array.from(tbody.querySelectorAll('tr'));
+  
+  if (fila < 0 || fila >= filas.length) return null;
+  
+  const inputsVisibles = Array.from(filas[fila].querySelectorAll('.input-nota:not(.col-oculta)'));
+  return inputsVisibles[columna] || null;
+}
+
+// Limpiar selección visual
+function limpiarSeleccion() {
+  document.querySelectorAll('.input-nota').forEach(inp => {
+    inp.classList.remove('nota-seleccionada');
+  });
+  celdasSeleccionadas = [];
+}
+
+// Seleccionar rango de celdas
+function seleccionarRango(inicio, fin) {
+  limpiarSeleccion();
+  
+  const filaInicio = Math.min(inicio.fila, fin.fila);
+  const filaFin = Math.max(inicio.fila, fin.fila);
+  const colInicio = Math.min(inicio.columna, fin.columna);
+  const colFin = Math.max(inicio.columna, fin.columna);
+  
+  for (let f = filaInicio; f <= filaFin; f++) {
+    for (let c = colInicio; c <= colFin; c++) {
+      const input = obtenerInputPorPosicion(f, c);
+      if (input) {
+        input.classList.add('nota-seleccionada');
+        celdasSeleccionadas.push(input);
+      }
+    }
+  }
+}
+
+// Event listener para mousedown (inicio de selección)
+document.getElementById('tbody-notas').addEventListener('mousedown', function(e) {
+  if (!e.target.classList.contains('input-nota')) return;
+  
+  celdaInicio = obtenerPosicionInput(e.target);
+  seleccionIniciada = true;
+  
+  limpiarSeleccion();
+  e.target.classList.add('nota-seleccionada');
+  celdasSeleccionadas = [e.target];
+});
+
+// Event listener para mouseover (extender selección)
+document.getElementById('tbody-notas').addEventListener('mouseover', function(e) {
+  if (!seleccionIniciada || !e.target.classList.contains('input-nota')) return;
+  
+  const celdaActual = obtenerPosicionInput(e.target);
+  seleccionarRango(celdaInicio, celdaActual);
+});
+
+// Event listener para mouseup (fin de selección)
+document.addEventListener('mouseup', function() {
+  seleccionIniciada = false;
+});
+
+// Event listener para COPIAR (Ctrl+C)
+document.getElementById('tbody-notas').addEventListener('keydown', async function(e) {
+  // COPIAR: Ctrl+C
+  if ((e.ctrlKey || e.metaKey) && e.key === 'c' && celdasSeleccionadas.length > 0) {
+    e.preventDefault();
+    
+    // Agrupar celdas por fila
+    const filasMap = new Map();
+    celdasSeleccionadas.forEach(input => {
+      const pos = obtenerPosicionInput(input);
+      if (!filasMap.has(pos.fila)) {
+        filasMap.set(pos.fila, []);
+      }
+      filasMap.get(pos.fila).push({ columna: pos.columna, valor: input.value || '' });
+    });
+    
+    // Ordenar filas y columnas
+    const filasOrdenadas = Array.from(filasMap.entries()).sort((a, b) => a[0] - b[0]);
+    const texto = filasOrdenadas.map(([_, celdas]) => {
+      return celdas.sort((a, b) => a.columna - b.columna)
+                   .map(c => c.valor)
+                   .join('\t'); // Tab-separated (formato Excel)
+    }).join('\n');
+    
+    // Copiar al portapapeles
+    try {
+      await navigator.clipboard.writeText(texto);
+      toast(`✅ ${celdasSeleccionadas.length} celda(s) copiada(s)`);
+    } catch (err) {
+      toast('❌ Error al copiar al portapapeles', 'error');
+    }
+  }
+});
+
+// Event listener para PEGAR (Ctrl+V)
+document.getElementById('tbody-notas').addEventListener('paste', async function(e) {
+  if (!e.target.classList.contains('input-nota')) return;
+  
+  e.preventDefault();
+  
+  try {
+    const textoPortapapeles = e.clipboardData.getData('text');
+    
+    if (!textoPortapapeles) {
+      toast('⚠️ No hay datos para pegar', 'warn');
+      return;
+    }
+    
+    // Parsear datos (formato TSV - tab-separated values)
+    const filas = textoPortapapeles.split('\n').map(fila => 
+      fila.split('\t').map(celda => celda.trim())
+    );
+    
+    // Obtener posición de inicio
+    const posicionInicio = obtenerPosicionInput(e.target);
+    
+    let celdasPegadas = 0;
+    let celdasInvalidas = 0;
+    
+    // Pegar datos
+    filas.forEach((fila, offsetFila) => {
+      fila.forEach((valor, offsetCol) => {
+        const input = obtenerInputPorPosicion(
+          posicionInicio.fila + offsetFila,
+          posicionInicio.columna + offsetCol
+        );
+        
+        if (input && valor !== '') {
+          input.value = valor.replace(',', '.');
+          
+          // Validar el valor pegado
+          const criterioActual = document.getElementById('sel-crit').value;
+          const esFirmas = criterioActual === 'Firmas';
+          const num = parseFloat(input.value);
+          
+          let esValido;
+          if (esFirmas) {
+            esValido = /^\d+$/.test(input.value) && !isNaN(num) && num >= 0;
+          } else {
+            esValido = /^\d+(\.\d+)?$/.test(input.value) && !isNaN(num) && num >= 0 && num <= 10;
+          }
+          
+          if (esValido) {
+            input.classList.remove('nota-error');
+            celdasPegadas++;
+          } else {
+            input.classList.add('nota-error');
+            celdasInvalidas++;
+          }
+        }
+      });
+    });
+    
+    // Recalcular firmas si es necesario
+    if (document.getElementById('sel-crit').value === 'Firmas') {
+      recalcularFirmas();
+    }
+    
+    // Mensaje de resultado
+    let mensaje = `✅ ${celdasPegadas} celda(s) pegada(s)`;
+    if (celdasInvalidas > 0) {
+      mensaje += ` | ⚠️ ${celdasInvalidas} con error de validación`;
+      toast(mensaje, 'warn');
+    } else {
+      toast(mensaje);
+    }
+    
+    limpiarSeleccion();
+    
+  } catch (err) {
+    toast('❌ Error al pegar datos', 'error');
+    console.error('Error en paste:', err);
+  }
+});
+
+// Limpiar selección al hacer click fuera de la tabla
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#tbody-notas')) {
+    limpiarSeleccion();
+  }
+});
 
 // ============================================================================
 // VALIDACIÓN DE NOTAS EN TIEMPO REAL (CON EXCEPCIÓN PARA FIRMAS)
